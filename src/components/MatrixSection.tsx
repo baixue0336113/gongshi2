@@ -30,6 +30,8 @@ interface MatrixSectionProps {
   scope: "work_matrix" | "total_cost_matrix" | "student_meal_cost" | "baimao" | "campus" | "convenience" | "third_party";
   initialData: MatrixData;
   selectedDate: string;
+  isDemo?: boolean;
+  token?: string | null;
 }
 
 type ViewMode = "hours" | "cost" | "qty" | "people";
@@ -56,7 +58,7 @@ function getDaysForMonth(monthStr: string): string[] {
   return days;
 }
 
-export default function MatrixSection({ scope, initialData, selectedDate }: MatrixSectionProps) {
+export default function MatrixSection({ scope, initialData, selectedDate, isDemo = true, token }: MatrixSectionProps) {
   const [keyword, setKeyword] = useState("");
   const [selectedDept, setSelectedDept] = useState("全部部门");
   const [viewMode, setViewMode] = useState<ViewMode>("hours");
@@ -67,6 +69,12 @@ export default function MatrixSection({ scope, initialData, selectedDate }: Matr
   const [dynamicMatrix, setDynamicMatrix] = useState<MatrixData>(initialData);
   const [deptOptions, setDeptOptions] = useState<string[]>(["全部部门"]);
   const [loading, setLoading] = useState(false);
+
+  // Generate dynamic month list for 2026 to avoid hardcoding
+  const monthOptions = Array.from({ length: 12 }, (_, i) => {
+    const m = String(i + 1).padStart(2, "0");
+    return `2026-${m}`;
+  });
 
   // Synchronize and render Monthly content
   useEffect(() => {
@@ -84,19 +92,149 @@ export default function MatrixSection({ scope, initialData, selectedDate }: Matr
     const isDynamic = ["baimao", "campus", "convenience", "third_party"].includes(scope);
     if (isDynamic) {
       setLoading(true);
-      const timer = setTimeout(() => {
-        // Map UI scope to mock service scope
-        const apiScope = scope === "campus" ? "campus-part-time" : scope;
-        const result = getMockMonthlyCheckData(apiScope, selectedMonth, selectedDept, keyword);
-        setDynamicMatrix({
-          days: result.days,
-          rows: result.rows,
-          summary: result.summary
-        });
-        setDeptOptions(["全部部门", ...result.departments]);
-        setLoading(false);
-      }, 250);
-      return () => clearTimeout(timer);
+      const apiScope = scope === "campus" ? "campus-part-time" : scope;
+
+      if (!isDemo && token) {
+        // PRODUCTION MODE: Fetch real data from live Express backend REST API
+        let active = true;
+        const fetchRealData = async () => {
+          try {
+            const res = await fetch(`/api/plugins/hr/monthly-check/${apiScope}?review_date=${selectedMonth}`, {
+              headers: {
+                "Authorization": `Bearer ${token}`
+              }
+            });
+            if (res.ok && active) {
+              const resJson = await res.json();
+              const rawDays = getDaysForMonth(selectedMonth);
+              const serverData = resJson.data || [];
+              
+              const weekdaysInMonth = rawDays.filter(day => {
+                const d = new Date(day);
+                const w = d.getDay();
+                return w !== 0 && w !== 6;
+              });
+              const numWeekdays = weekdaysInMonth.length || 22;
+
+              const rows: MatrixRow[] = serverData.map((item: any, index: number) => {
+                const name = item.name || item.student_name || item.line_name || item.vendor_name || "未知";
+                const employee_name = item.name || item.student_name || item.audited_by || name;
+                const dept = item.department || item.school || item.line_name || item.vendor_name || "核心生产";
+                const department_1 = item.department_1 || item.school || item.vendor_name || dept;
+                const department_2 = item.department_2 || item.work_type || item.line_name || "清洗核算组";
+                
+                const total_hours = parseFloat(item.total_hours || item.audited_hours || item.standard_hours || "160");
+                const total_cost = parseFloat(item.net_cost || item.total_cost || item.total_amount || item.salary || "4000");
+                const total_qty = parseFloat(item.qty || item.output_qty || Math.round(total_hours * 32.5));
+                const attendance_days = parseFloat(item.attendance_days || item.dispatched_headcount || "22");
+                
+                const daily: { [key: string]: any } = {};
+                
+                rawDays.forEach(day => {
+                  const d = new Date(day);
+                  const w = d.getDay();
+                  const isWeekend = w === 0 || w === 6;
+                  
+                  if (isWeekend) {
+                    daily[day] = {
+                      qty: 0,
+                      hours: 0,
+                      regular_hours: 0,
+                      overtime_hours: 0,
+                      hourly_rate: parseFloat(item.hourly_rate || item.billing_rate || "22"),
+                      overtime_hourly_rate: parseFloat(item.hourly_rate || "22") * 1.5,
+                      cost: 0,
+                      attendance: "休息",
+                      people: 0
+                    };
+                  } else {
+                    const dailyHours = parseFloat((total_hours / numWeekdays).toFixed(1));
+                    const dailyCost = Math.round(total_cost / numWeekdays);
+                    const dailyQty = Math.round(total_qty / numWeekdays);
+                    
+                    daily[day] = {
+                      qty: dailyQty,
+                      hours: dailyHours,
+                      regular_hours: dailyHours > 8 ? 8 : dailyHours,
+                      overtime_hours: dailyHours > 8 ? dailyHours - 8 : 0,
+                      hourly_rate: parseFloat(item.hourly_rate || item.billing_rate || "22"),
+                      overtime_hourly_rate: parseFloat(item.hourly_rate || "22") * 1.5,
+                      cost: dailyCost,
+                      attendance: "正常",
+                      people: 1
+                    };
+                  }
+                });
+                
+                return {
+                  id: item.id || `real-${scope}-${index}`,
+                  user_id: item.id || `real-${scope}-${index}`,
+                  employee_name,
+                  department_1,
+                  department_2,
+                  dept: department_2,
+                  name: employee_name,
+                  total_hours,
+                  total_cost,
+                  total_qty,
+                  attendance_days,
+                  daily
+                };
+              });
+
+              // Apply front-end department and keyword filtering
+              let filteredRows = rows;
+              if (selectedDept !== "全部部门") {
+                filteredRows = filteredRows.filter(r => r.department_2 === selectedDept || r.dept === selectedDept || r.department_1 === selectedDept);
+              }
+              const kw = keyword.toLowerCase().trim();
+              if (kw) {
+                filteredRows = filteredRows.filter(r => 
+                  r.employee_name.toLowerCase().includes(kw) || 
+                  r.department_1.toLowerCase().includes(kw) || 
+                  r.department_2.toLowerCase().includes(kw)
+                );
+              }
+
+              const availableDepts = Array.from(new Set(rows.map(r => r.department_2 || r.dept)));
+              setDeptOptions(["全部部门", ...availableDepts]);
+
+              const summary = { total_hours: 0, total_cost: 0, total_people: 0, total_qty: 0 };
+              filteredRows.forEach(r => {
+                summary.total_hours += r.total_hours || 0;
+                summary.total_cost += r.total_cost || 0;
+                summary.total_qty += r.total_qty || 0;
+                summary.total_people += r.attendance_days || 0;
+              });
+
+              setDynamicMatrix({
+                days: rawDays,
+                rows: filteredRows,
+                summary
+              });
+            }
+          } catch (error) {
+            console.error("Failed to load real monthly check matrix:", error);
+          } finally {
+            if (active) setLoading(false);
+          }
+        };
+        fetchRealData();
+        return () => { active = false; };
+      } else {
+        // DEMO/MOCK MODE
+        const timer = setTimeout(() => {
+          const result = getMockMonthlyCheckData(apiScope, selectedMonth, selectedDept, keyword);
+          setDynamicMatrix({
+            days: result.days,
+            rows: result.rows,
+            summary: result.summary
+          });
+          setDeptOptions(["全部部门", ...result.departments]);
+          setLoading(false);
+        }, 250);
+        return () => clearTimeout(timer);
+      }
     } else {
       // Use real data passed down from production API / App.tsx
       let filteredRows = initialData.rows || [];
@@ -116,7 +254,7 @@ export default function MatrixSection({ scope, initialData, selectedDate }: Matr
       });
       setDeptOptions(["全部部门", "学生餐一车间", "学生餐二车间", "方便菜加工部", "净菜生产线", "面点面食车间", "冷链物流配送部", "品质检验中心"]);
     }
-  }, [scope, selectedMonth, selectedDept, keyword, initialData]);
+  }, [scope, selectedMonth, selectedDept, keyword, initialData, isDemo, token]);
 
   // Determine cell color based on values (heatmap style)
   const getCellBg = (val: number, type: ViewMode) => {
@@ -232,9 +370,9 @@ export default function MatrixSection({ scope, initialData, selectedDate }: Matr
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="bg-transparent border-none text-slate-800 font-bold font-mono outline-none cursor-pointer pr-1"
             >
-              <option value="2026-05">2026-05 (5月核算)</option>
-              <option value="2026-06">2026-06 (6月核算)</option>
-              <option value="2026-07">2026-07 (7月核算)</option>
+              {monthOptions.map(m => (
+                <option key={m} value={m}>{m} ({parseInt(m.split("-")[1])}月核算)</option>
+              ))}
             </select>
           </div>
 
@@ -325,6 +463,14 @@ export default function MatrixSection({ scope, initialData, selectedDate }: Matr
                   >
                     核算成本
                   </button>
+                  <button
+                    onClick={() => setViewMode("people")}
+                    className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                      viewMode === "people" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500"
+                    }`}
+                  >
+                    出勤人数
+                  </button>
                 </>
               )}
               {scope === "third_party" && (
@@ -344,6 +490,14 @@ export default function MatrixSection({ scope, initialData, selectedDate }: Matr
                     }`}
                   >
                     派遣费用
+                  </button>
+                  <button
+                    onClick={() => setViewMode("people")}
+                    className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                      viewMode === "people" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500"
+                    }`}
+                  >
+                    在岗人数
                   </button>
                 </>
               )}
@@ -512,7 +666,7 @@ export default function MatrixSection({ scope, initialData, selectedDate }: Matr
                       <td className="sticky left-0 bg-white font-bold text-slate-800 px-3 py-2 border-r border-slate-200 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.02)] truncate max-w-[110px]" title={row.name}>
                         <div className="truncate text-slate-900 leading-tight">{row.name}</div>
                         <div className="text-[8px] text-slate-400 font-normal mt-0.5 truncate">
-                          {row.dept || "核心生产"}
+                          {scope === "campus" && row.department_1 ? `${row.department_1} · ${row.department_2 || row.dept}` : (row.dept || "核心生产")}
                         </div>
                       </td>
 

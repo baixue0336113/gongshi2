@@ -205,6 +205,8 @@ export default function App() {
               scope="baimao"
               initialData={{ days: [], rows: [], summary: {} }}
               selectedDate={selectedDate}
+              isDemo={isDemo}
+              token={token}
             />
           )}
 
@@ -213,6 +215,8 @@ export default function App() {
               scope="campus"
               initialData={{ days: [], rows: [], summary: {} }}
               selectedDate={selectedDate}
+              isDemo={isDemo}
+              token={token}
             />
           )}
 
@@ -221,6 +225,8 @@ export default function App() {
               scope="convenience"
               initialData={{ days: [], rows: [], summary: {} }}
               selectedDate={selectedDate}
+              isDemo={isDemo}
+              token={token}
             />
           )}
 
@@ -229,6 +235,8 @@ export default function App() {
               scope="third_party"
               initialData={{ days: [], rows: [], summary: {} }}
               selectedDate={selectedDate}
+              isDemo={isDemo}
+              token={token}
             />
           )}
         </DashboardLayout>

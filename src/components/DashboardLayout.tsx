@@ -275,8 +275,14 @@ export default function DashboardLayout({
                   return (
                     <button
                       key={item.id}
-                      onClick={() => setActiveTab(item.id as ActiveTab)}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-all text-left group ${
+                      onClick={() => {
+                        if (isSidebarCollapsed) {
+                          setIsDrawerOpen(true);
+                        } else {
+                          setActiveTab(item.id as ActiveTab);
+                        }
+                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-all text-left group cursor-pointer ${
                         isActive
                           ? "bg-orange-500 text-slate-950 shadow-md shadow-orange-500/15"
                           : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"

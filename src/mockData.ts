@@ -992,7 +992,7 @@ export function getMockMonthlyCheckData(scope: string, month: string, department
 
   return {
     month,
-    days: daysInfo as any, // Return rich DayInfo[] format directly!
+    days: rawDays,
     rows,
     summary,
     departments: deptList

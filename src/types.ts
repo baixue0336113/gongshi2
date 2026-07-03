@@ -96,6 +96,10 @@ export interface MatrixRow {
   total_people?: number;
   total_qty?: number;
   avg_hours?: number;
+  employee_name?: string;
+  department_1?: string;
+  department_2?: string;
+  attendance_days?: number;
   daily: { [day: string]: MatrixDailyData };
   children?: MatrixRow[];
 }
