@@ -76,11 +76,22 @@ export default function DashboardLayout({
   const isFoldable = mode === "foldable-inner";
 
   const [collapsed, setCollapsed] = useState(() => {
+    if (mode === "tablet") return false;
+    if (mode === "foldable-inner") return true;
     if (typeof window !== "undefined") {
       return window.innerWidth < 1200;
     }
     return true;
   });
+
+  React.useEffect(() => {
+    if (mode === "tablet") {
+      setCollapsed(false);
+    } else if (mode === "foldable-inner") {
+      setCollapsed(true);
+    }
+  }, [mode]);
+
   const [dateDropdownOpen, setDateDropdownOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
