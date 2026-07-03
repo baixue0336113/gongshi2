@@ -82,6 +82,7 @@ export interface MatrixDailyData {
   people?: number;
   qty?: number;
   abnormal?: boolean;
+  is_fallback_rate?: boolean;
 }
 
 export interface MatrixRow {
@@ -100,6 +101,7 @@ export interface MatrixRow {
   department_1?: string;
   department_2?: string;
   attendance_days?: number;
+  fallback_rate_cells?: string[];
   daily: { [day: string]: MatrixDailyData };
   children?: MatrixRow[];
 }

@@ -62,19 +62,21 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
   const [keyword, setKeyword] = useState("");
   const [selectedDept, setSelectedDept] = useState("全部部门");
   const [viewMode, setViewMode] = useState<ViewMode>("hours");
-  const [selectedMonth, setSelectedMonth] = useState("2026-06"); // Month Filter YYYY-MM
+  
+  // Set default initial month using the date passed from props or current year-month
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    if (selectedDate && selectedDate.includes("-")) {
+      return selectedDate.substring(0, 7);
+    }
+    return new Date().toISOString().slice(0, 7);
+  });
+
   const { mode } = useDevice();
   const isFoldable = mode === "foldable-inner";
   
   const [dynamicMatrix, setDynamicMatrix] = useState<MatrixData>(initialData);
   const [deptOptions, setDeptOptions] = useState<string[]>(["全部部门"]);
   const [loading, setLoading] = useState(false);
-
-  // Generate dynamic month list for 2026 to avoid hardcoding
-  const monthOptions = Array.from({ length: 12 }, (_, i) => {
-    const m = String(i + 1).padStart(2, "0");
-    return `2026-${m}`;
-  });
 
   // Synchronize and render Monthly content
   useEffect(() => {
@@ -90,6 +92,7 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
     }
 
     const isDynamic = ["baimao", "campus", "convenience", "third_party"].includes(scope);
+    
     if (isDynamic) {
       setLoading(true);
       const apiScope = scope === "campus" ? "campus-part-time" : scope;
@@ -99,73 +102,64 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
         let active = true;
         const fetchRealData = async () => {
           try {
-            const res = await fetch(`/api/plugins/hr/monthly-check/${apiScope}?review_date=${selectedMonth}`, {
+            const deptParam = selectedDept === "全部部门" ? "" : selectedDept;
+            const url = `/api/plugins/hr/monthly-check/${apiScope}?month=${selectedMonth}&department=${encodeURIComponent(deptParam)}&keyword=${encodeURIComponent(keyword)}`;
+            
+            const res = await fetch(url, {
               headers: {
                 "Authorization": `Bearer ${token}`
               }
             });
             if (res.ok && active) {
               const resJson = await res.json();
-              const rawDays = getDaysForMonth(selectedMonth);
-              const serverData = resJson.data || [];
               
-              const weekdaysInMonth = rawDays.filter(day => {
-                const d = new Date(day);
-                const w = d.getDay();
-                return w !== 0 && w !== 6;
-              });
-              const numWeekdays = weekdaysInMonth.length || 22;
+              // Direct extraction from server response fields
+              const rawDays = resJson.days || (resJson.data && resJson.data.days) || getDaysForMonth(selectedMonth);
+              const rowsData = resJson.rows || (resJson.data && resJson.data.rows) || resJson.data || [];
+              const serverSummary = resJson.summary || (resJson.data && resJson.data.summary) || {};
+              const serverDepts = resJson.departments || (resJson.data && resJson.data.departments) || [];
 
-              const rows: MatrixRow[] = serverData.map((item: any, index: number) => {
-                const name = item.name || item.student_name || item.line_name || item.vendor_name || "未知";
-                const employee_name = item.name || item.student_name || item.audited_by || name;
-                const dept = item.department || item.school || item.line_name || item.vendor_name || "核心生产";
-                const department_1 = item.department_1 || item.school || item.vendor_name || dept;
-                const department_2 = item.department_2 || item.work_type || item.line_name || "清洗核算组";
+              const rows: MatrixRow[] = rowsData.map((item: any, index: number) => {
+                const name = item.name || item.employee_name || item.student_name || item.line_name || item.vendor_name || "未知";
+                const employee_name = item.employee_name || name;
+                const dept = item.department_2 || item.dept || item.department || item.school || item.line_name || item.vendor_name || "核心生产";
+                const department_1 = item.department_1 || item.school || item.vendor_name || "核心生产";
+                const department_2 = item.department_2 || item.work_type || item.line_name || dept;
                 
-                const total_hours = parseFloat(item.total_hours || item.audited_hours || item.standard_hours || "160");
-                const total_cost = parseFloat(item.net_cost || item.total_cost || item.total_amount || item.salary || "4000");
-                const total_qty = parseFloat(item.qty || item.output_qty || Math.round(total_hours * 32.5));
-                const attendance_days = parseFloat(item.attendance_days || item.dispatched_headcount || "22");
-                
+                // Read from the server's real daily mapping directly to prevent manual averages
                 const daily: { [key: string]: any } = {};
                 
-                rawDays.forEach(day => {
-                  const d = new Date(day);
-                  const w = d.getDay();
-                  const isWeekend = w === 0 || w === 6;
-                  
-                  if (isWeekend) {
+                rawDays.forEach((day: string) => {
+                  const dVal = item.daily ? item.daily[day] : null;
+                  if (dVal) {
+                    daily[day] = {
+                      qty: dVal.qty !== undefined ? dVal.qty : 0,
+                      hours: dVal.hours !== undefined ? dVal.hours : 0,
+                      regular_hours: dVal.regular_hours !== undefined ? dVal.regular_hours : 0,
+                      overtime_hours: dVal.overtime_hours !== undefined ? dVal.overtime_hours : 0,
+                      hourly_rate: dVal.hourly_rate !== undefined ? dVal.hourly_rate : (item.hourly_rate || item.billing_rate || 22),
+                      overtime_hourly_rate: dVal.overtime_hourly_rate !== undefined ? dVal.overtime_hourly_rate : (item.hourly_rate || 22) * 1.5,
+                      cost: dVal.cost !== undefined ? dVal.cost : 0,
+                      attendance: dVal.attendance !== undefined ? dVal.attendance : "正常",
+                      people: dVal.people !== undefined ? dVal.people : 1,
+                      is_fallback_rate: dVal.is_fallback_rate || false,
+                    };
+                  } else {
                     daily[day] = {
                       qty: 0,
                       hours: 0,
                       regular_hours: 0,
                       overtime_hours: 0,
-                      hourly_rate: parseFloat(item.hourly_rate || item.billing_rate || "22"),
-                      overtime_hourly_rate: parseFloat(item.hourly_rate || "22") * 1.5,
+                      hourly_rate: item.hourly_rate || item.billing_rate || 22,
+                      overtime_hourly_rate: (item.hourly_rate || 22) * 1.5,
                       cost: 0,
                       attendance: "休息",
-                      people: 0
-                    };
-                  } else {
-                    const dailyHours = parseFloat((total_hours / numWeekdays).toFixed(1));
-                    const dailyCost = Math.round(total_cost / numWeekdays);
-                    const dailyQty = Math.round(total_qty / numWeekdays);
-                    
-                    daily[day] = {
-                      qty: dailyQty,
-                      hours: dailyHours,
-                      regular_hours: dailyHours > 8 ? 8 : dailyHours,
-                      overtime_hours: dailyHours > 8 ? dailyHours - 8 : 0,
-                      hourly_rate: parseFloat(item.hourly_rate || item.billing_rate || "22"),
-                      overtime_hourly_rate: parseFloat(item.hourly_rate || "22") * 1.5,
-                      cost: dailyCost,
-                      attendance: "正常",
-                      people: 1
+                      people: 0,
+                      is_fallback_rate: false
                     };
                   }
                 });
-                
+
                 return {
                   id: item.id || `real-${scope}-${index}`,
                   user_id: item.id || `real-${scope}-${index}`,
@@ -174,15 +168,16 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
                   department_2,
                   dept: department_2,
                   name: employee_name,
-                  total_hours,
-                  total_cost,
-                  total_qty,
-                  attendance_days,
+                  total_hours: parseFloat(item.total_hours || item.audited_hours || item.standard_hours || "0"),
+                  total_cost: parseFloat(item.total_cost || item.net_cost || item.total_amount || item.salary || "0"),
+                  total_qty: parseFloat(item.total_qty || item.qty || item.output_qty || "0"),
+                  attendance_days: parseFloat(item.attendance_days || item.dispatched_headcount || "0"),
+                  fallback_rate_cells: item.fallback_rate_cells || [],
                   daily
                 };
               });
 
-              // Apply front-end department and keyword filtering
+              // Apply front-end department and keyword filtering (just in case)
               let filteredRows = rows;
               if (selectedDept !== "全部部门") {
                 filteredRows = filteredRows.filter(r => r.department_2 === selectedDept || r.dept === selectedDept || r.department_1 === selectedDept);
@@ -196,16 +191,17 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
                 );
               }
 
-              const availableDepts = Array.from(new Set(rows.map(r => r.department_2 || r.dept)));
+              // Update department options dynamically from server departments list
+              const availableDepts = serverDepts.length > 0 ? serverDepts : Array.from(new Set(rows.map(r => r.department_2 || r.dept)));
               setDeptOptions(["全部部门", ...availableDepts]);
 
-              const summary = { total_hours: 0, total_cost: 0, total_people: 0, total_qty: 0 };
-              filteredRows.forEach(r => {
-                summary.total_hours += r.total_hours || 0;
-                summary.total_cost += r.total_cost || 0;
-                summary.total_qty += r.total_qty || 0;
-                summary.total_people += r.attendance_days || 0;
-              });
+              // Calculate of summary based on active view filtering (with server fallbacks)
+              const summary = {
+                total_hours: serverSummary.total_hours !== undefined ? serverSummary.total_hours : filteredRows.reduce((acc, r) => acc + (r.total_hours || 0), 0),
+                total_cost: serverSummary.total_cost !== undefined ? serverSummary.total_cost : filteredRows.reduce((acc, r) => acc + (r.total_cost || 0), 0),
+                total_qty: serverSummary.total_qty !== undefined ? serverSummary.total_qty : filteredRows.reduce((acc, r) => acc + (r.total_qty || 0), 0),
+                total_people: serverSummary.total_people !== undefined ? serverSummary.total_people : filteredRows.reduce((acc, r) => acc + (r.attendance_days || 0), 0)
+              };
 
               setDynamicMatrix({
                 days: rawDays,
@@ -222,7 +218,7 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
         fetchRealData();
         return () => { active = false; };
       } else {
-        // DEMO/MOCK MODE
+        // DEMO/MOCK MODE (Directly uses mockData functions that construct proper daily structures)
         const timer = setTimeout(() => {
           const result = getMockMonthlyCheckData(apiScope, selectedMonth, selectedDept, keyword);
           setDynamicMatrix({
@@ -232,7 +228,7 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
           });
           setDeptOptions(["全部部门", ...result.departments]);
           setLoading(false);
-        }, 250);
+        }, 200);
         return () => clearTimeout(timer);
       }
     } else {
@@ -257,7 +253,10 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
   }, [scope, selectedMonth, selectedDept, keyword, initialData, isDemo, token]);
 
   // Determine cell color based on values (heatmap style)
-  const getCellBg = (val: number, type: ViewMode) => {
+  const getCellBg = (val: number, type: ViewMode, isFallback?: boolean) => {
+    if (isFallback) {
+      return "bg-amber-50 text-amber-900 border border-amber-300/60";
+    }
     if (!val || val === 0) return "bg-slate-50 text-slate-300";
     
     if (type === "hours") {
@@ -273,7 +272,7 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
       if (val <= 500) return "bg-indigo-100 text-indigo-900 font-semibold";
       return "bg-purple-100 text-purple-900 font-bold";
     }
-
+    
     if (type === "qty") {
       if (val < 150) return "bg-teal-50 text-teal-600";
       if (val <= 250) return "bg-teal-100 text-teal-800";
@@ -283,23 +282,97 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
     return "bg-emerald-100 text-emerald-800 font-semibold";
   };
 
+  // Get dynamic combined cell layouts for enhanced double density visualization
   const getCellLabel = (row: MatrixRow, day: string) => {
     const daily = row.daily[day];
     if (!daily) return "-";
-    
-    if (viewMode === "hours") return daily.hours !== undefined ? `${daily.hours}h` : "-";
-    if (viewMode === "cost") return daily.cost !== undefined ? `¥${daily.cost}` : "-";
-    if (viewMode === "qty") return daily.qty !== undefined ? `${daily.qty}箱` : "-";
-    if (viewMode === "people") return daily.people !== undefined ? `${daily.people}人` : "-";
-    return "-";
+
+    const isFallback = daily.is_fallback_rate || (row.fallback_rate_cells && row.fallback_rate_cells.includes(day));
+
+    if (scope === "baimao") {
+      const qty = daily.qty !== undefined ? daily.qty : 0;
+      const cost = daily.cost !== undefined ? daily.cost : 0;
+      if (qty === 0 && cost === 0) return "-";
+      return (
+        <div className="flex flex-col items-center justify-center py-0.5 leading-none">
+          <span className="font-semibold">{qty}件</span>
+          <span className="text-[7.5px] text-slate-400 mt-0.5 font-normal">¥{cost}</span>
+        </div>
+      );
+    }
+
+    if (scope === "campus") {
+      const people = daily.people !== undefined ? daily.people : 0;
+      const hours = daily.hours !== undefined ? daily.hours : 0;
+      const cost = daily.cost !== undefined ? daily.cost : 0;
+      if (people === 0 && hours === 0 && cost === 0) return "-";
+      return (
+        <div className="flex flex-col items-center justify-center py-0.5 leading-none">
+          <span className="font-semibold">{people}人 · {hours}h</span>
+          <span className="text-[7.5px] text-slate-400 mt-0.5 font-normal">¥{cost}</span>
+        </div>
+      );
+    }
+
+    if (scope === "convenience" || scope === "third_party") {
+      const hours = daily.hours !== undefined ? daily.hours : 0;
+      const cost = daily.cost !== undefined ? daily.cost : 0;
+      const people = daily.people !== undefined ? daily.people : 0;
+      if (hours === 0 && cost === 0) return "-";
+      return (
+        <div className="flex flex-col items-center justify-center py-0.5 leading-none">
+          <span className="font-semibold">{hours}h</span>
+          <span className="text-[7.5px] text-slate-400 mt-0.5 font-normal">¥{cost} ({people}人)</span>
+        </div>
+      );
+    }
+
+    // Default Ordinary hours & cost mapping
+    const hours = daily.hours !== undefined ? daily.hours : 0;
+    const cost = daily.cost !== undefined ? daily.cost : 0;
+    if (hours === 0 && cost === 0) return "-";
+    return (
+      <div className="flex flex-col items-center justify-center py-0.5 leading-none relative">
+        <span className="font-semibold">{hours}h</span>
+        <span className="text-[7.5px] text-slate-400 mt-0.5 font-normal flex items-center justify-center gap-0.5">
+          ¥{cost}
+          {isFallback && <span className="text-[7px] font-bold text-red-500" title="工资保底兜底保障">*</span>}
+        </span>
+      </div>
+    );
   };
 
   const getRowTotalLabel = (row: MatrixRow) => {
-    if (viewMode === "hours") return `${row.total_hours || 0}h`;
-    if (viewMode === "cost") return `¥${(row.total_cost || 0).toLocaleString()}`;
-    if (viewMode === "qty") return `${(row.total_qty || 0).toLocaleString()}箱`;
-    if (viewMode === "people") return `${row.total_people || 0}人天`;
-    return "-";
+    if (scope === "baimao") {
+      return (
+        <div className="flex flex-col items-center justify-center leading-none py-1">
+          <span className="font-bold text-slate-800">{(row.total_qty || 0).toLocaleString()}件</span>
+          <span className="text-[8px] text-slate-500 font-normal mt-0.5">¥{(row.total_cost || 0).toLocaleString()}</span>
+        </div>
+      );
+    }
+    if (scope === "campus") {
+      return (
+        <div className="flex flex-col items-center justify-center leading-none py-1">
+          <span className="font-bold text-slate-800">{(row.total_hours || 0).toLocaleString()}h</span>
+          <span className="text-[8px] text-slate-500 font-normal mt-0.5">¥{(row.total_cost || 0).toLocaleString()} ({row.attendance_days || 0}人天)</span>
+        </div>
+      );
+    }
+    if (scope === "convenience" || scope === "third_party") {
+      return (
+        <div className="flex flex-col items-center justify-center leading-none py-1">
+          <span className="font-bold text-slate-800">{(row.total_hours || 0).toLocaleString()}h</span>
+          <span className="text-[8px] text-slate-500 font-normal mt-0.5">¥{(row.total_cost || 0).toLocaleString()}</span>
+        </div>
+      );
+    }
+    return (
+      <div className="flex flex-col items-center justify-center leading-none py-1">
+        <span className="font-bold text-slate-800">{(row.total_hours || 0).toLocaleString()}h</span>
+        <span className="text-[8px] text-slate-500 font-normal mt-0.5">¥{(row.total_cost || 0).toLocaleString()}</span>
+      </div>
+    );
   };
 
   // Process data for Recharts Trend Curve
@@ -354,6 +427,125 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
     };
   }).filter((item) => item.value > 0);
 
+  // Compute daily sum row totals
+  const getDailySum = (day: string) => {
+    let sum = 0;
+    dynamicMatrix.rows.forEach(row => {
+      const dVal = row.daily[day];
+      if (dVal) {
+        if (viewMode === "hours") {
+          sum += parseFloat(dVal.hours || 0);
+        } else if (viewMode === "cost") {
+          sum += parseFloat(dVal.cost || 0);
+        } else if (viewMode === "qty") {
+          sum += parseFloat(dVal.qty || 0);
+        } else if (viewMode === "people") {
+          sum += parseFloat(dVal.people || 0);
+        }
+      }
+    });
+    return sum;
+  };
+
+  // Grand total for daily sums
+  const getGrandTotal = () => {
+    let sum = 0;
+    dynamicMatrix.rows.forEach(row => {
+      if (viewMode === "hours") sum += parseFloat(row.total_hours || 0);
+      else if (viewMode === "cost") sum += parseFloat(row.total_cost || 0);
+      else if (viewMode === "qty") sum += parseFloat(row.total_qty || 0);
+      else if (viewMode === "people") sum += parseFloat(row.attendance_days || 0);
+    });
+    return sum;
+  };
+
+  // Render KBI Cards dynamically according to scope and specifications
+  const renderKbiCards = () => {
+    const summary = dynamicMatrix.summary || {};
+    const totalHours = summary.total_hours !== undefined ? summary.total_hours : dynamicMatrix.rows.reduce((acc, r) => acc + (r.total_hours || 0), 0);
+    const totalCost = summary.total_cost !== undefined ? summary.total_cost : dynamicMatrix.rows.reduce((acc, r) => acc + (r.total_cost || 0), 0);
+    const totalQty = summary.total_qty !== undefined ? summary.total_qty : dynamicMatrix.rows.reduce((acc, r) => acc + (r.total_qty || 0), 0);
+    const totalPeople = summary.total_people !== undefined ? summary.total_people : dynamicMatrix.rows.reduce((acc, r) => acc + (r.attendance_days || 0), 0);
+
+    let cards: Array<{ label: string, value: string | number, color: string, icon: any }> = [];
+
+    if (scope === "baimao") {
+      cards = [
+        { label: "矩阵周期", value: selectedMonth, color: "bg-orange-50 text-orange-600 border-orange-200", icon: Calendar },
+        { label: "计费项目", value: `${dynamicMatrix.rows.length} 个`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
+        { label: "累计数量", value: `${Math.round(totalQty).toLocaleString()} 箱`, color: "bg-teal-50 text-teal-600 border-teal-200", icon: Layers },
+        { label: "清洗成本", value: `¥${Math.round(totalCost).toLocaleString()}`, color: "bg-indigo-50 text-indigo-600 border-indigo-200", icon: DollarSign }
+      ];
+    } else if (scope === "campus") {
+      cards = [
+        { label: "矩阵周期", value: selectedMonth, color: "bg-orange-50 text-orange-600 border-orange-200", icon: Calendar },
+        { label: "兼职人数", value: `${Math.round(totalPeople || dynamicMatrix.rows.length)} 人`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
+        { label: "累计工时", value: `${Math.round(totalHours).toLocaleString()} h`, color: "bg-teal-50 text-teal-600 border-teal-200", icon: Clock },
+        { label: "人工成本", value: `¥${Math.round(totalCost).toLocaleString()}`, color: "bg-indigo-50 text-indigo-600 border-indigo-200", icon: DollarSign }
+      ];
+    } else if (scope === "convenience") {
+      cards = [
+        { label: "矩阵周期", value: selectedMonth, color: "bg-orange-50 text-orange-600 border-orange-200", icon: Calendar },
+        { label: "核对人数", value: `${Math.round(totalPeople || dynamicMatrix.rows.length)} 人`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
+        { label: "累计工时", value: `${Math.round(totalHours).toLocaleString()} h`, color: "bg-teal-50 text-teal-600 border-teal-200", icon: Clock },
+        { label: "人工成本", value: `¥${Math.round(totalCost).toLocaleString()}`, color: "bg-indigo-50 text-indigo-600 border-indigo-200", icon: DollarSign }
+      ];
+    } else if (scope === "third_party") {
+      cards = [
+        { label: "矩阵周期", value: selectedMonth, color: "bg-orange-50 text-orange-600 border-orange-200", icon: Calendar },
+        { label: "核对人数", value: `${Math.round(totalPeople || dynamicMatrix.rows.length)} 人`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
+        { label: "累计工时", value: `${Math.round(totalHours).toLocaleString()} h`, color: "bg-teal-50 text-teal-600 border-teal-200", icon: Clock },
+        { label: "人工成本", value: `¥${Math.round(totalCost).toLocaleString()}`, color: "bg-indigo-50 text-indigo-600 border-indigo-200", icon: DollarSign }
+      ];
+    } else if (scope === "work_matrix") {
+      const avgHours = dynamicMatrix.rows.length > 0 ? (totalHours / dynamicMatrix.rows.length).toFixed(1) : "0";
+      cards = [
+        { label: "矩阵周期", value: dynamicMatrix.days.length > 0 ? `${dynamicMatrix.days[0]} ~ ${dynamicMatrix.days[dynamicMatrix.days.length-1]}` : selectedDate, color: "bg-orange-50 text-orange-600 border-orange-200", icon: Calendar },
+        { label: "核对人数", value: `${dynamicMatrix.rows.length} 人`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
+        { label: "确认工时", value: `${Math.round(totalHours).toLocaleString()} h`, color: "bg-teal-50 text-teal-600 border-teal-200", icon: Clock },
+        { label: "人均工时", value: `${avgHours} h`, color: "bg-indigo-50 text-indigo-600 border-indigo-200", icon: HelpCircle }
+      ];
+    } else if (scope === "student_meal_cost") {
+      const avgCost = dynamicMatrix.rows.length > 0 ? Math.round(totalCost / dynamicMatrix.rows.length) : 0;
+      cards = [
+        { label: "核算周期", value: dynamicMatrix.days.length > 0 ? `${dynamicMatrix.days[0]} ~ ${dynamicMatrix.days[dynamicMatrix.days.length-1]}` : selectedDate, color: "bg-orange-50 text-orange-600 border-orange-200", icon: Calendar },
+        { label: "核算对象数", value: `${dynamicMatrix.rows.length} 个`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
+        { label: "核算总额", value: `¥${Math.round(totalCost).toLocaleString()}`, color: "bg-teal-50 text-teal-600 border-teal-200", icon: DollarSign },
+        { label: "平均成本 / 对象", value: `¥${avgCost.toLocaleString()}`, color: "bg-indigo-50 text-indigo-600 border-indigo-200", icon: HelpCircle }
+      ];
+    } else {
+      // total_cost_matrix (总成本矩阵)
+      const avgCost = dynamicMatrix.rows.length > 0 ? Math.round(totalCost / dynamicMatrix.rows.length) : 0;
+      cards = [
+        { label: "核算周期", value: dynamicMatrix.days.length > 0 ? `${dynamicMatrix.days[0]} ~ ${dynamicMatrix.days[dynamicMatrix.days.length-1]}` : selectedDate, color: "bg-orange-50 text-orange-600 border-orange-200", icon: Calendar },
+        { label: "成本构成数", value: `${dynamicMatrix.rows.length} 项`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
+        { label: "核定总成本", value: `¥${Math.round(totalCost).toLocaleString()}`, color: "bg-teal-50 text-teal-600 border-teal-200", icon: DollarSign },
+        { label: "平均成本 / 项", value: `¥${avgCost.toLocaleString()}`, color: "bg-indigo-50 text-indigo-600 border-indigo-200", icon: HelpCircle }
+      ];
+    }
+
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {cards.map((c, i) => {
+          const Icon = c.icon;
+          return (
+            <div key={i} className={`bg-white border border-slate-200/80 rounded-xl flex items-center justify-between shadow-xs ${
+              isFoldable ? "p-2.5" : "p-4"
+            }`}>
+              <div className="min-w-0">
+                <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider mb-0.5">{c.label}</span>
+                <span className="text-sm md:text-base font-bold text-slate-800 font-mono truncate block">{c.value || "0"}</span>
+              </div>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ml-2 ${c.color}`}>
+                <Icon size={14} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className={isFoldable ? "space-y-3" : "space-y-4"}>
       {/* 1. Monthly Filter + Search + Department Selection */}
@@ -361,19 +553,16 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
         isFoldable ? "p-3 gap-2.5" : "p-4 gap-4"
       }`}>
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* YYYY-MM Month Selector (Crucial core requirement!) */}
+          {/* YYYY-MM Month Selector (Native dynamic date month picker - prevents 2026/2027 hardcoding completely!) */}
           <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg text-xs text-slate-600">
             <Calendar size={13} className="text-orange-500 font-bold" />
             <span className="font-bold">核算月份:</span>
-            <select 
+            <input
+              type="month"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="bg-transparent border-none text-slate-800 font-bold font-mono outline-none cursor-pointer pr-1"
-            >
-              {monthOptions.map(m => (
-                <option key={m} value={m}>{m} ({parseInt(m.split("-")[1])}月核算)</option>
-              ))}
-            </select>
+              className="bg-transparent border-none text-slate-800 font-bold font-mono outline-none cursor-pointer pr-1 text-xs"
+            />
           </div>
 
           {/* Keyword Query Search */}
@@ -527,14 +716,17 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
         </div>
       </div>
 
-      {/* 2. Analytical Trends & Proportion Structure Charts */}
+      {/* 2. Top KBI Cards (Web aligned 4-Column Summary Cards) */}
+      {!loading && renderKbiCards()}
+
+      {/* 3. Analytical Trends & Proportion Structure Charts */}
       {!loading && dynamicMatrix.rows.length > 0 && (
         <div className={`grid grid-cols-1 ${isFoldable ? "gap-3" : "lg:grid-cols-12 gap-5"}`}>
-          {/* Trend Line (65% width on tablet/desktop) */}
+          {/* Trend Line */}
           <div className={`${isFoldable ? "" : "lg:col-span-8"} bg-white rounded-xl border border-slate-200 p-4 shadow-xs`}>
             <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5 mb-2.5">
               <TrendingUp size={14} className="text-orange-500" />
-              {selectedMonth} 每日趋势波动分析 ({viewMode === "hours" ? "核定工时" : viewMode === "cost" ? "生产费用" : viewMode === "qty" ? "折算箱数" : "出勤人天"})
+              {selectedMonth} 每日趋势波动分析 ({viewMode === "hours" ? "核定工时" : viewMode === "cost" ? "归集成本" : viewMode === "qty" ? "折算箱数" : "出勤人数"})
             </span>
             <div style={{ height: isFoldable ? 150 : 210, width: "100%" }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -556,14 +748,14 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
                       <Area name="总工时" type="monotone" dataKey="total" stroke="#f97316" fill="url(#colorTotal)" strokeWidth={2} />
                     </>
                   ) : (
-                    <Area name={viewMode === "cost" ? "归集成本" : viewMode === "qty" ? "箱量" : "在岗人天"} type="monotone" dataKey="total" stroke="#3b82f6" fillOpacity={0.05} strokeWidth={2} />
+                    <Area name={viewMode === "cost" ? "归集成本" : viewMode === "qty" ? "箱量" : "在岗人数"} type="monotone" dataKey="total" stroke="#3b82f6" fillOpacity={0.05} strokeWidth={2} />
                   )}
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Pie Chart (35% width on tablet/desktop) */}
+          {/* Pie Chart */}
           <div className={`${isFoldable ? "" : "lg:col-span-4"} bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between`}>
             <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
               <LucidePieIcon size={14} className="text-orange-500" />
@@ -578,33 +770,24 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
                     cy="50%"
                     innerRadius={isFoldable ? 35 : 45}
                     outerRadius={isFoldable ? 50 : 60}
-                    paddingAngle={3}
+                    paddingAngle={2}
                     dataKey="value"
                   >
-                    {pieChartData.map((entry, idx) => (
-                      <Cell key={`cell-${idx}`} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
+                    {pieChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip contentStyle={{ fontSize: 10, borderRadius: 8 }} />
                 </RechartsPieChart>
               </ResponsiveContainer>
-              <div className="absolute flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-[8px] text-slate-400 font-bold uppercase">合计</span>
-                <span className="text-[11px] font-bold text-slate-800 font-mono mt-0.5">
-                  {viewMode === "cost"
-                    ? `¥${pieChartData.reduce((acc, curr) => acc + curr.value, 0).toLocaleString()}`
-                    : `${pieChartData.reduce((acc, curr) => acc + curr.value, 0).toLocaleString()}${viewMode === "hours" ? "h" : viewMode === "qty" ? "箱" : "人"}`}
-                </span>
-              </div>
             </div>
-            
-            {/* Legend layout */}
-            <div className="grid grid-cols-2 gap-1.5 max-h-[52px] overflow-y-auto touch-scroll pr-1">
-              {pieChartData.slice(0, 6).map((item, idx) => (
-                <div key={item.name} className="flex items-center gap-1 text-[9px] text-slate-500 font-medium truncate">
+            {/* Minimalist Legend */}
+            <div className="grid grid-cols-2 gap-1 px-1 mt-1 text-[9px] font-semibold text-slate-500">
+              {pieChartData.slice(0, 4).map((entry, idx) => (
+                <div key={idx} className="flex items-center gap-1.5 truncate">
                   <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }} />
-                  <span className="truncate flex-1">{item.name}</span>
-                  <span className="font-mono text-slate-400 text-[8px]">({Math.round((item.value / pieChartData.reduce((a, b) => a + b.value, 0)) * 100) || 0}%)</span>
+                  <span className="truncate">{entry.name}:</span>
+                  <span className="font-mono text-slate-700 font-bold shrink-0">{Math.round(entry.value).toLocaleString()}</span>
                 </div>
               ))}
             </div>
@@ -612,11 +795,31 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
         </div>
       )}
 
-      {/* 3. Main Matrix Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+      {/* 4. Multi-Dimensional Density Interactive Attendance & Costs Matrix Grid */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4">
+        <div className="flex items-center justify-between mb-3.5">
+          <div className="flex flex-col">
+            <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              工时与结算核对矩阵
+              {loading && <span className="text-[10px] text-orange-500 animate-pulse font-normal">载入最新周期数据中...</span>}
+            </span>
+            <span className="text-[9px] text-slate-400 mt-0.5 font-medium">多密度数据矩阵：各单元格双排组合展示，上排代表主业务值（如件数/工时），下排代表对应的核算金额。</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400">导出类型:</span>
+            <button className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-md border border-slate-200 text-[10px] font-bold transition-all cursor-pointer">
+              Excel 账单
+            </button>
+            <button className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-md border border-slate-200 text-[10px] font-bold transition-all cursor-pointer">
+              PDF 确认单
+            </button>
+          </div>
+        </div>
+
         {loading ? (
-          <div className="h-64 flex flex-col items-center justify-center">
-            <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center border border-orange-200 animate-spin text-orange-600 font-bold text-sm">
+          <div className="py-24 flex flex-col items-center justify-center">
+            <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin cursor-wait">
               ↻
             </div>
             <span className="text-xs text-slate-400 mt-2">载入核算月份矩阵中...</span>
@@ -625,6 +828,7 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
           <div className="overflow-x-auto matrix-scroll relative w-full">
             <table className="w-full border-collapse table-fixed min-w-[1300px]">
               <thead>
+                {/* 1st Header Row: Dates & Weekdays */}
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[9px] font-bold uppercase">
                   {/* Narrowed Roster first column */}
                   <th className="sticky left-0 bg-slate-50 w-[110px] text-left px-3 py-3 border-r border-slate-200 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
@@ -651,6 +855,26 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
                     累计汇总
                   </th>
                 </tr>
+
+                {/* 2nd Header Row: Web-aligned "按日汇总" (Daily sum totals) row */}
+                {dynamicMatrix.rows.length > 0 && (
+                  <tr className="bg-slate-100/60 border-b border-slate-200 text-[9px] font-bold text-slate-700">
+                    <th className="sticky left-0 bg-slate-100 text-left px-3 py-2 border-r border-slate-200 z-10 font-bold shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
+                      按日汇总
+                    </th>
+                    {dynamicMatrix.days.map((day) => {
+                      const sum = getDailySum(day);
+                      return (
+                        <th key={`sum-${day}`} className="text-center py-1.5 border-r border-slate-200/50 font-mono text-[9px] text-slate-700">
+                          {viewMode === "cost" ? `¥${Math.round(sum).toLocaleString()}` : viewMode === "hours" ? `${sum.toFixed(1)}h` : viewMode === "people" ? `${Math.round(sum)}人` : `${Math.round(sum)}`}
+                        </th>
+                      );
+                    })}
+                    <th className="text-center bg-slate-100 border-l border-slate-200 sticky right-0 z-10 font-mono text-slate-800 shadow-[-2px_0_5px_rgba(0,0,0,0.02)]">
+                      {viewMode === "cost" ? `¥${Math.round(getGrandTotal()).toLocaleString()}` : viewMode === "hours" ? `${getGrandTotal().toFixed(1)}h` : viewMode === "people" ? `${Math.round(getGrandTotal())}人` : `${Math.round(getGrandTotal())}`}
+                    </th>
+                  </tr>
+                )}
               </thead>
 
               <tbody className="divide-y divide-slate-100 text-[10px]">
@@ -680,7 +904,9 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
                             ? row.daily[day]?.qty
                             : row.daily[day]?.people;
 
-                        const cellClass = getCellBg(val || 0, viewMode);
+                        const isFallback = row.daily[day]?.is_fallback_rate || (row.fallback_rate_cells && row.fallback_rate_cells.includes(day));
+                        const cellClass = getCellBg(val || 0, viewMode, isFallback);
+
                         return (
                           <td
                             key={day}
@@ -702,64 +928,6 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
           </div>
         )}
       </div>
-
-      {/* 4. Monthly Summary Cards */}
-      {dynamicMatrix.summary && (
-        <div className={`grid grid-cols-2 lg:grid-cols-4 ${isFoldable ? "gap-2" : "gap-4"}`}>
-          {dynamicMatrix.summary.total_hours !== undefined && (
-            <div className={`bg-slate-50 border border-slate-200/60 rounded-xl flex items-center justify-between ${
-              isFoldable ? "p-2" : "p-3.5"
-            }`}>
-              <div>
-                <span className="text-[9px] text-slate-400 font-bold block uppercase">月度累计总工时</span>
-                <span className="text-xs font-bold text-slate-800 font-mono">{(dynamicMatrix.summary.total_hours).toLocaleString()}h</span>
-              </div>
-              <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600 shrink-0">
-                <Clock size={13} />
-              </div>
-            </div>
-          )}
-          {dynamicMatrix.summary.total_cost !== undefined && (
-            <div className={`bg-slate-50 border border-slate-200/60 rounded-xl flex items-center justify-between ${
-              isFoldable ? "p-2" : "p-3.5"
-            }`}>
-              <div>
-                <span className="text-[9px] text-slate-400 font-bold block uppercase">月度累计核算成本</span>
-                <span className="text-xs font-bold text-orange-600 font-mono">¥{(dynamicMatrix.summary.total_cost).toLocaleString()}</span>
-              </div>
-              <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-                <DollarSign size={13} />
-              </div>
-            </div>
-          )}
-          {dynamicMatrix.summary.total_qty !== undefined && dynamicMatrix.summary.total_qty > 0 && (
-            <div className={`bg-slate-50 border border-slate-200/60 rounded-xl flex items-center justify-between ${
-              isFoldable ? "p-2" : "p-3.5"
-            }`}>
-              <div>
-                <span className="text-[9px] text-slate-400 font-bold block uppercase">月度累计加工量</span>
-                <span className="text-xs font-bold text-slate-800 font-mono">{(dynamicMatrix.summary.total_qty).toLocaleString()} 箱</span>
-              </div>
-              <div className="w-7 h-7 rounded-lg bg-teal-100 flex items-center justify-center text-teal-600 shrink-0">
-                <Layers size={13} />
-              </div>
-            </div>
-          )}
-          {dynamicMatrix.summary.total_people !== undefined && dynamicMatrix.summary.total_people > 0 && (
-            <div className={`bg-slate-50 border border-slate-200/60 rounded-xl flex items-center justify-between ${
-              isFoldable ? "p-2" : "p-3.5"
-            }`}>
-              <div>
-                <span className="text-[9px] text-slate-400 font-bold block uppercase">核定在岗人次</span>
-                <span className="text-xs font-bold text-slate-800 font-mono">{(dynamicMatrix.summary.total_people)} 人天</span>
-              </div>
-              <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
-                <Clock size={13} />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
