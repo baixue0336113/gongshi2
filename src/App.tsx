@@ -140,6 +140,10 @@ export default function App() {
               trendData={dashboardData.trend_data} 
               kpiFormulas={dashboardData.meta?.kpi_formulas || {}} 
               departments={dashboardData.departments} 
+              supportHours={dashboardData.support_hours}
+              efficiency={dashboardData.efficiency_dashboard}
+              cost={dashboardData.cost}
+              risk={dashboardData.risk}
             />
           )}
 

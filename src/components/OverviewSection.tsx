@@ -1,5 +1,5 @@
 import React from "react";
-import { SummaryKPI, TrendPoint, DepartmentItem } from "../types";
+import { SummaryKPI, TrendPoint, DepartmentItem, SupportHoursData, EfficiencyDashboardData, CostCenterData, RiskData } from "../types";
 import { useDevice } from "../context/DeviceContext";
 import { 
   TrendingUp, 
@@ -32,143 +32,273 @@ interface OverviewSectionProps {
   trendData: TrendPoint[];
   kpiFormulas: { [key: string]: string };
   departments: DepartmentItem[];
+  supportHours?: SupportHoursData;
+  efficiency?: EfficiencyDashboardData;
+  cost?: CostCenterData;
+  risk?: RiskData;
 }
 
 export default function OverviewSection({ 
   summary, 
   trendData = [], 
   kpiFormulas = {}, 
-  departments = [] 
+  departments = [],
+  supportHours,
+  efficiency,
+  cost,
+  risk
 }: OverviewSectionProps) {
   const { mode } = useDevice();
   const isFoldable = mode === "foldable-inner";
+
+  // Helper to safely format KPI values without default fake overrides
+  const formatKpiValue = (key: string, val: any) => {
+    if (val === undefined || val === null) return "-";
+    if (key === "total_staff" || key === "overtime_staff") {
+      return `${val.toLocaleString()}人`;
+    }
+    if (key === "production_hours" || key === "avg_hours") {
+      return `${val.toLocaleString()}h`;
+    }
+    if (key === "attendance_rate" || key === "labor_cost_rate" || key === "coverage_rate") {
+      return `${val}%`;
+    }
+    if (key === "labor_cost") {
+      return `¥${val.toLocaleString()}`;
+    }
+    if (key === "unit_hour_output_value" || key === "unit_hour_labor_cost") {
+      return `¥${val}/h`;
+    }
+    if (key === "avg_sales_per_person") {
+      return `¥${val.toLocaleString()}/人`;
+    }
+    return String(val);
+  };
 
   // Aligned 11 Core Web KPI cards from the summary prop
   const kpis = [
     {
       key: "total_staff",
       title: "员工总数",
-      value: `${summary.total_staff?.toLocaleString() || "0"}人`,
+      value: formatKpiValue("total_staff", summary.total_staff),
       compare: summary.total_staff_compare || 0,
       desc: "在册出勤活跃员工总数"
     },
     {
       key: "attendance_rate",
       title: "所选日期出勤率",
-      value: `${summary.attendance_rate || "0"}%`,
+      value: formatKpiValue("attendance_rate", summary.attendance_rate),
       compare: summary.attendance_rate_compare || 0,
       desc: "当日实际打卡出勤比例"
     },
     {
       key: "production_hours",
       title: "所选日期生产工时",
-      value: `${summary.production_hours?.toLocaleString() || "0"}h`,
+      value: formatKpiValue("production_hours", summary.production_hours),
       compare: summary.production_hours_compare || 0,
       desc: "经审核有效实际生产工时"
     },
     {
       key: "avg_hours",
       title: "人均工时",
-      value: `${summary.avg_hours || "0"}h`,
+      value: formatKpiValue("avg_hours", summary.avg_hours),
       compare: summary.avg_hours_compare || 0,
       desc: "当日人均确认生产时长"
     },
     {
       key: "overtime_staff",
       title: "加班人数",
-      value: `${summary.overtime_staff || "0"}人`,
+      value: formatKpiValue("overtime_staff", summary.overtime_staff),
       compare: summary.overtime_staff_compare || 0,
       desc: "日出勤时长溢出报警人数"
     },
     {
       key: "unit_hour_output_value",
       title: "单位工时产值",
-      value: `¥${summary.unit_hour_output_value || "0"}/h`,
+      value: formatKpiValue("unit_hour_output_value", summary.unit_hour_output_value),
       compare: summary.unit_hour_output_value_compare || 0,
       desc: "折算产值 / 确认总生产工时"
     },
     {
       key: "avg_sales_per_person",
       title: "人均销售额",
-      value: `¥${summary.avg_sales_per_person?.toLocaleString() || "0"}/人`,
+      value: formatKpiValue("avg_sales_per_person", summary.avg_sales_per_person),
       compare: summary.avg_sales_per_person_compare || 0,
       desc: "销售营收 / 实际在岗总人天"
     },
     {
       key: "labor_cost",
       title: "人工工时成本",
-      value: `¥${summary.labor_cost?.toLocaleString() || "0"}`,
+      value: formatKpiValue("labor_cost", summary.labor_cost),
       compare: summary.labor_cost_compare || 0,
       desc: "确认工时 × 核定综合时薪"
     },
     {
       key: "labor_cost_rate",
       title: "人工成本率",
-      value: `${summary.labor_cost_rate || "0"}%`,
+      value: formatKpiValue("labor_cost_rate", summary.labor_cost_rate),
       compare: summary.labor_cost_rate_compare || 0,
       desc: "人工成本总额 / 销售总营收"
     },
     {
       key: "unit_hour_labor_cost",
       title: "单位工时人工成本",
-      value: `¥${summary.unit_hour_labor_cost || "0"}/h`,
+      value: formatKpiValue("unit_hour_labor_cost", summary.unit_hour_labor_cost),
       compare: summary.unit_hour_labor_cost_compare || 0,
       desc: "人工成本总额 / 确认总工时"
     },
     {
       key: "coverage_rate",
       title: "工时覆盖率",
-      value: `${summary.coverage_rate || "0"}%`,
+      value: formatKpiValue("coverage_rate", summary.coverage_rate),
       compare: summary.coverage_rate_compare || 0,
       desc: "关联工时产出绩效考核占比"
     }
   ];
 
-  // Radar chart data modeling: 工时覆盖 / 经营效率 / 成本控制 / 规则健康等综合雷达
-  const radarData = [
-    { subject: "工时覆盖率", value: summary.coverage_rate || 92, fullMark: 100 },
-    { subject: "经营生产效率", value: 85, fullMark: 100 },
-    { subject: "人工成本控制", value: Math.max(10, 100 - (summary.labor_cost_rate || 12)), fullMark: 100 },
-    { subject: "考勤规则健康", value: 94, fullMark: 100 },
-    { subject: "跨岗支援协作", value: 88, fullMark: 100 }
-  ];
+  // Radar chart data modeling: Built 100% dynamically from input props (no hardcoding)
+  const radarData: Array<{ subject: string; value: number; fullMark: number }> = [];
 
-  // AI-driven Smart Insight Data
-  const aiInsights = [
-    {
-      type: "warning",
-      title: "连续超时警戒",
-      content: "冷链物流配送部今日 2 名配送组组员已累计打卡工时达 10.5h，已提示班组长做跨岗工时对调，防范过劳风险。",
-      color: "border-l-4 border-amber-500 bg-amber-50/50"
-    },
-    {
-      type: "success",
-      title: "效率效能领跑",
-      content: "学生餐一车间今日单位工时产值提升至 ¥48.5/h，产能负荷率 94% 达到行业先进线，推荐复制其排班精益范式。",
-      color: "border-l-4 border-emerald-500 bg-emerald-50/50"
-    },
-    {
-      type: "info",
-      title: "支援调配通报",
-      content: "今日发生车间跨岗支援 8 人次（累计 64 小时），其中冷链调往净菜生产线 48 小时，高效解冻洗箱线临时用工荒。",
-      color: "border-l-4 border-blue-500 bg-blue-50/50"
-    },
-    {
-      type: "danger",
-      title: "单价成本上浮",
-      content: "净菜生产线由于调拨半成品增加，单位工时人工成本比上周上浮 3.2%，建议结合明日配餐量重新厘定兼职比例。",
-      color: "border-l-4 border-rose-500 bg-rose-50/50"
+  if (summary?.coverage_rate !== undefined && summary?.coverage_rate !== null) {
+    radarData.push({ subject: "工时覆盖率", value: summary.coverage_rate, fullMark: 100 });
+  }
+
+  if (departments && departments.length > 0) {
+    const avgEfficiency = Math.round(departments.reduce((sum, d) => sum + (d.efficiency_index || 0), 0) / departments.length);
+    radarData.push({ subject: "经营生产效率", value: avgEfficiency, fullMark: 100 });
+  }
+
+  if (summary?.labor_cost_rate !== undefined && summary?.labor_cost_rate !== null) {
+    const costControl = Math.max(10, Math.min(100, 100 - summary.labor_cost_rate));
+    radarData.push({ subject: "人工成本控制", value: costControl, fullMark: 100 });
+  }
+
+  if (risk?.overview) {
+    const totalAlerts = risk.overview.total_alerts || 0;
+    const highRisk = risk.overview.high_risk_count || 0;
+    const ruleHealth = Math.max(10, Math.min(100, 100 - (highRisk * 15 + totalAlerts * 2)));
+    radarData.push({ subject: "考勤规则健康", value: ruleHealth, fullMark: 100 });
+  }
+
+  // Render cross-dept support metric only if supportHours data is genuinely present
+  if (supportHours && supportHours.records && supportHours.records.length > 0) {
+    const totalSupportHours = supportHours.records.reduce((sum, r) => sum + (r.support_hours || 0), 0);
+    const supportScore = Math.min(100, 60 + Math.round(totalSupportHours / 5));
+    radarData.push({ subject: "跨岗支援协作", value: supportScore, fullMark: 100 });
+  }
+
+  const getRadarAnalysisText = () => {
+    if (radarData.length === 0) return "暂无足够雷达评估指标";
+    const sorted = [...radarData].sort((a, b) => b.value - a.value);
+    const best = sorted[0];
+    const worst = sorted[sorted.length - 1];
+    if (best.subject === worst.subject) {
+      return `综合评估各维度均衡，平均指数为 ${best.value}。`;
     }
-  ];
+    return `诊断结论：当前【${best.subject}】（评分 ${best.value}）表现最优，而【${worst.subject}】（评分 ${worst.value}）表现相对偏弱，建议重点关注。`;
+  };
 
-  // Workshop Efficiency List
-  const workshopEfficiency = [
-    { name: "学生餐一车间", hours: "185.0h", score: 96, status: "健康", desc: "生产平稳，出勤率 98%", statusColor: "text-emerald-600 bg-emerald-50" },
-    { name: "学生餐二车间", hours: "148.5h", score: 91, status: "健康", desc: "排班结构优良", statusColor: "text-emerald-600 bg-emerald-50" },
-    { name: "方便菜加工部", hours: "120.0h", score: 85, status: "轻微超负荷", desc: "2人轻微超时打卡", statusColor: "text-amber-600 bg-amber-50" },
-    { name: "净菜生产线", hours: "96.0h", score: 88, status: "健康", desc: "工时覆盖率 100%", statusColor: "text-emerald-600 bg-emerald-50" },
-    { name: "冷链物流配送部", hours: "78.5h", score: 79, status: "异常预警", desc: "配送组2人连续超时", statusColor: "text-rose-600 bg-rose-50" }
-  ];
+  // Rule-based, 100% dynamic cockpit warnings & prompts (No fake AI larping, no hardcoded strings)
+  const cockpitInsights = [];
+
+  // 1. Production overload or health check
+  const dangerDept = departments.find(d => d.rule_status === "danger");
+  const warningDept = departments.find(d => d.rule_status === "warning");
+  if (dangerDept) {
+    cockpitInsights.push({
+      type: "danger",
+      title: "车间工时异常警报",
+      content: `${dangerDept.department_name}今日生产工时达 ${dangerDept.total_hours}h，异常工时增加，已触发合规限额警报。建议${dangerDept.manager ? `${dangerDept.manager}主管` : "车间负责人"}及时优化工时编排。`,
+      color: "border-l-4 border-rose-500 bg-rose-50/50"
+    });
+  } else if (warningDept) {
+    cockpitInsights.push({
+      type: "warning",
+      title: "车间负荷偏高提醒",
+      content: `${warningDept.department_name}今日累计生产工时 ${warningDept.total_hours}h，接近警戒负荷，建议密切监督员工间歇轮休。`,
+      color: "border-l-4 border-amber-500 bg-amber-50/50"
+    });
+  }
+
+  // 2. Efficiency champions
+  if (departments && departments.length > 0) {
+    const sortedDepts = [...departments].sort((a, b) => (b.efficiency_index || 0) - (a.efficiency_index || 0));
+    const highestEff = sortedDepts[0];
+    if (highestEff && (highestEff.efficiency_index || 0) > 80) {
+      cockpitInsights.push({
+        type: "success",
+        title: "车间生产效能领先",
+        content: `【效能领跑】${highestEff.department_name}今日生产效能指数达 ${highestEff.efficiency_index} 分，为全厂排班效率之首，建议总结推广其工时编排经验。`,
+        color: "border-l-4 border-emerald-500 bg-emerald-50/50"
+      });
+    }
+  }
+
+  // 3. Cross-department support details
+  if (supportHours && supportHours.records && supportHours.records.length > 0) {
+    const totalSupportHours = supportHours.records.reduce((sum, r) => sum + (r.support_hours || 0), 0);
+    const peopleCount = supportHours.records.reduce((sum, r) => sum + (r.people_count || 0), 0);
+    cockpitInsights.push({
+      type: "info",
+      title: "跨岗支援调配动态",
+      content: `今日全厂累计发生跨岗支援 ${peopleCount} 人次，支援工时共达 ${totalSupportHours}h，有效平抑了相关车间的短时用工波峰。`,
+      color: "border-l-4 border-blue-500 bg-blue-50/50"
+    });
+  }
+
+  // 4. Cost rate feedback
+  if (summary && summary.labor_cost_rate !== undefined && summary.labor_cost_rate !== null) {
+    const costRate = summary.labor_cost_rate;
+    if (costRate > 15) {
+      cockpitInsights.push({
+        type: "warning",
+        title: "人工成本占比偏高",
+        content: `当前人工成本率偏高（${costRate}%），请各车间精细化调配冗余兼职，避免出现多余非生产工时溢出。`,
+        color: "border-l-4 border-rose-500 bg-rose-50/50"
+      });
+    } else {
+      cockpitInsights.push({
+        type: "info",
+        title: "人工成本结构稳健",
+        content: `当前人工成本率处于合理区间（${costRate}%），工时单价结构及产出效率处于稳定常态。`,
+        color: "border-l-4 border-blue-500 bg-blue-50/50"
+      });
+    }
+  }
+
+  // Clean empty-state fallback
+  if (cockpitInsights.length === 0) {
+    cockpitInsights.push({
+      type: "info",
+      title: "驾驶舱经营提示",
+      content: "今日各项核心生产合规及成本指标均在设定范围，厂区工时数据运行平稳，无异常风险提示。",
+      color: "border-l-4 border-blue-500 bg-blue-50/50"
+    });
+  }
+
+  // Dynamic workshop efficiency list mapped from actual departments prop
+  const workshopEfficiency = departments.map(dept => {
+    let status = "健康";
+    let statusColor = "text-emerald-600 bg-emerald-50";
+    if (dept.rule_status === "danger") {
+      status = "异常预警";
+      statusColor = "text-rose-600 bg-rose-50";
+    } else if (dept.rule_status === "warning") {
+      status = "轻微过载";
+      statusColor = "text-amber-600 bg-amber-50";
+    }
+
+    return {
+      name: dept.department_name,
+      hours: `${dept.total_hours || 0}h`,
+      score: dept.efficiency_index || 0,
+      status,
+      desc: dept.rule_status === "danger" 
+        ? `异常工时 ${dept.overtime_hours}h，主管: ${dept.manager || "-"}` 
+        : `运行平稳，人均 ${dept.avg_hours}h`,
+      statusColor
+    };
+  });
 
   return (
     <div className={isFoldable ? "space-y-3" : "space-y-4"}>
@@ -187,13 +317,12 @@ export default function OverviewSection({
           经营核算指标 KBI 一览 (全量 11 项正式指标)
         </span>
         
-        {/* Responsive Grid with strict card height */}
+        {/* Responsive Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
           {kpis.map((kpi) => {
             const isPositive = kpi.compare >= 0;
             const isOvertimeOrCost = ["labor_cost", "labor_cost_rate", "overtime_staff"].includes(kpi.key);
             
-            // Highlight color based on business meaning
             const trendColor = isPositive 
               ? (isOvertimeOrCost ? "text-rose-600 font-bold" : "text-emerald-600 font-bold")
               : (isOvertimeOrCost ? "text-emerald-600 font-bold" : "text-rose-600 font-bold");
@@ -206,11 +335,11 @@ export default function OverviewSection({
                 <div className="text-[9px] text-slate-500 font-semibold truncate leading-tight">
                   {kpi.title}
                 </div>
-                <div className="flex items-baseline justify-between gap-1 w-full mt-1">
-                  <span className="text-xs font-extrabold text-slate-800 font-mono tracking-tight truncate">
+                <div className="flex items-baseline justify-between gap-1 w-full mt-1 font-mono">
+                  <span className="text-xs font-extrabold text-slate-800 tracking-tight truncate">
                     {kpi.value}
                   </span>
-                  <span className={`text-[8.5px] font-mono leading-none shrink-0 ${trendColor}`}>
+                  <span className={`text-[8.5px] leading-none shrink-0 ${trendColor}`}>
                     {isPositive ? "↑" : "↓"}{Math.abs(kpi.compare)}%
                   </span>
                 </div>
@@ -223,7 +352,7 @@ export default function OverviewSection({
         </div>
       </div>
 
-      {/* 3. Operational Cockpit Layout - Trend Line (Double Axis) & Radar Chart */}
+      {/* 3. Operational Cockpit Layout - Trend Line & Radar Chart */}
       <div className={`grid grid-cols-1 ${isFoldable ? "gap-3" : "lg:grid-cols-12 gap-5"}`}>
         
         {/* Left Area: Group Work Hour Efficiency Trend Line */}
@@ -303,35 +432,39 @@ export default function OverviewSection({
           </div>
 
           <div className="flex-1 flex items-center justify-center my-2" style={{ height: isFoldable ? 160 : 200 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart cx="50%" cy="50%" outerRadius={isFoldable ? 50 : 70} data={radarData}>
-                <PolarGrid stroke="#e2e8f0" />
-                <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 9, fontWeight: 'bold' }} />
-                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 8 }} />
-                <Radar name="鲜誉综合评分" dataKey="value" stroke="#f97316" fill="#f97316" fillOpacity={0.25} />
-              </RadarChart>
-            </ResponsiveContainer>
+            {radarData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart cx="50%" cy="50%" outerRadius={isFoldable ? 50 : 70} data={radarData}>
+                  <PolarGrid stroke="#e2e8f0" />
+                  <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 9, fontWeight: 'bold' }} />
+                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 8 }} />
+                  <Radar name="鲜誉综合评分" dataKey="value" stroke="#f97316" fill="#f97316" fillOpacity={0.25} />
+                </RadarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-[10px] text-slate-400">暂无雷达评估指标</div>
+            )}
           </div>
 
-          <div className="text-[9px] text-slate-400 text-center leading-normal px-2 bg-slate-50/50 py-2 rounded-lg border border-slate-100">
-            <strong>雷达分析结果：</strong>当前考勤合规与跨岗支援健康度最高，成本控制受制于原料调拨时薪稍需改善。
+          <div className="text-[9px] text-slate-400 text-center leading-normal px-2 bg-slate-50/50 py-2 rounded-lg border border-slate-100 font-medium">
+            <strong>经营分析结果：</strong>{getRadarAnalysisText()}
           </div>
         </div>
 
       </div>
 
-      {/* 4. Secondary Row: AI Insights bullet bulletin & Workshop overload health list */}
+      {/* 4. Secondary Row: Cockpit Insights Bulletin & Workshop overload health list */}
       <div className={`grid grid-cols-1 ${isFoldable ? "gap-3" : "lg:grid-cols-2 gap-5"}`}>
         
-        {/* Left Column: AI-driven Smart Insight Bulletin */}
+        {/* Left Column: Cockpit Insights Bulletin */}
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between space-y-3">
           <div className="flex items-center gap-1.5 border-b border-slate-50 pb-2 shrink-0">
             <BrainCircuit size={14} className="text-orange-500 shrink-0" />
-            <span className="text-xs font-bold text-slate-800">鲜誉智能问答与经营提示</span>
+            <span className="text-xs font-bold text-slate-800 font-display">车间提示与驾驶舱提示</span>
           </div>
 
           <div className="space-y-2 flex-1 overflow-y-auto max-h-[280px] pr-1">
-            {aiInsights.map((insight, index) => (
+            {cockpitInsights.map((insight, index) => (
               <div key={index} className={`p-2.5 rounded-lg border border-slate-100/60 flex gap-2.5 ${insight.color}`}>
                 <div className="mt-0.5 shrink-0">
                   {insight.type === "warning" && <AlertCircle size={14} className="text-amber-500" />}
@@ -370,25 +503,33 @@ export default function OverviewSection({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 text-[10px]">
-                {workshopEfficiency.map((item, index) => (
-                  <tr key={index} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="py-2.5 font-bold text-slate-700">{item.name}</td>
-                    <td className="py-2.5 text-center font-mono font-bold text-slate-600">{item.hours}</td>
-                    <td className="py-2.5 text-center">
-                      <span className={`font-mono font-bold px-1.5 py-0.5 rounded text-[9.5px] ${
-                        item.score >= 90 ? "bg-emerald-50 text-emerald-700" : item.score >= 80 ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700"
-                      }`}>
-                        {item.score}分
-                      </span>
+                {workshopEfficiency.length > 0 ? (
+                  workshopEfficiency.map((item, index) => (
+                    <tr key={index} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-2.5 font-bold text-slate-700">{item.name}</td>
+                      <td className="py-2.5 text-center font-mono font-bold text-slate-600">{item.hours}</td>
+                      <td className="py-2.5 text-center">
+                        <span className={`font-mono font-bold px-1.5 py-0.5 rounded text-[9.5px] ${
+                          item.score >= 90 ? "bg-emerald-50 text-emerald-700" : item.score >= 80 ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700"
+                        }`}>
+                          {item.score}分
+                        </span>
+                      </td>
+                      <td className="py-2.5 text-center">
+                        <span className={`px-2 py-0.5 rounded-full text-[8.5px] font-bold ${item.statusColor}`}>
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="py-2.5 text-right font-medium text-slate-400">{item.desc}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="py-6 text-center text-slate-400 font-semibold">
+                      暂无二级车间效能数据
                     </td>
-                    <td className="py-2.5 text-center">
-                      <span className={`px-2 py-0.5 rounded-full text-[8.5px] font-bold ${item.statusColor}`}>
-                        {item.status}
-                      </span>
-                    </td>
-                    <td className="py-2.5 text-right font-medium text-slate-400">{item.desc}</td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
