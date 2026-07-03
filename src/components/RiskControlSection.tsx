@@ -9,7 +9,7 @@ interface RiskControlSectionProps {
 }
 
 export default function RiskControlSection({ data }: RiskControlSectionProps) {
-  const [selectedDept, setSelectedDept] = useState("方便菜加工部");
+  const [selectedDept, setSelectedDept] = useState("");
   const { mode } = useDevice();
   const isFoldable = mode === "foldable-inner";
 
@@ -23,7 +23,9 @@ export default function RiskControlSection({ data }: RiskControlSectionProps) {
     department_details = {}
   } = data;
 
-  const currentDetail: RiskDepartmentDetail | undefined = department_details[selectedDept];
+  const depts = Object.keys(department_details || {});
+  const activeDept = depts.includes(selectedDept) ? selectedDept : (depts[0] || "");
+  const currentDetail: RiskDepartmentDetail | undefined = department_details[activeDept];
 
   return (
     <div className={isFoldable ? "space-y-3" : "space-y-6"}>
@@ -135,7 +137,7 @@ export default function RiskControlSection({ data }: RiskControlSectionProps) {
           <div className="flex items-center gap-1.5">
             <ShieldAlert size={14} className="text-orange-500" />
             <h4 className="text-xs font-bold text-slate-800">
-              车间级风险深度透视：<span className="text-orange-600">【{selectedDept}】</span>
+              车间级风险深度透视：<span className="text-orange-600">【{activeDept}】</span>
             </h4>
           </div>
 
@@ -145,7 +147,7 @@ export default function RiskControlSection({ data }: RiskControlSectionProps) {
                 key={deptName}
                 onClick={() => setSelectedDept(deptName)}
                 className={`px-2 py-0.5 text-xs rounded transition-all cursor-pointer ${
-                  selectedDept === deptName 
+                  activeDept === deptName 
                     ? "bg-orange-500 text-slate-950 font-bold" 
                     : "text-slate-500 hover:text-slate-800"
                 }`}

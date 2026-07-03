@@ -176,13 +176,13 @@ export function getMockDashboardData(date: string): DashboardResponse {
 
   // 4. Trend Data
   const trend_data: TrendPoint[] = [
-    { date: "06-24", staff: 338, hours: 2680, labor_cost: 84200, efficiency: 91.2 },
-    { date: "06-25", staff: 340, hours: 2710, labor_cost: 85000, efficiency: 92.5 },
-    { date: "06-26", staff: 342, hours: 2750, labor_cost: 86400, efficiency: 93.1 },
-    { date: "06-27", staff: 155, hours: 1120, labor_cost: 38200, efficiency: 94.0 }, // weekend drop
-    { date: "06-28", staff: 148, hours: 1040, labor_cost: 35500, efficiency: 93.8 },
-    { date: "06-29", staff: 345, hours: 2820, labor_cost: 88500, efficiency: 94.5 },
-    { date: "06-30", staff: 342, hours: 2804, labor_cost: 87800, efficiency: 95.2 }
+    { date: "06-24", staff: 338, hours: 2680, labor_cost: 84200, efficiency: 91.2, overtime: 280 },
+    { date: "06-25", staff: 340, hours: 2710, labor_cost: 85000, efficiency: 92.5, overtime: 240 },
+    { date: "06-26", staff: 342, hours: 2750, labor_cost: 86400, efficiency: 93.1, overtime: 310 },
+    { date: "06-27", staff: 155, hours: 1120, labor_cost: 38200, efficiency: 94.0, overtime: 60 }, // weekend drop
+    { date: "06-28", staff: 148, hours: 1040, labor_cost: 35500, efficiency: 93.8, overtime: 50 },
+    { date: "06-29", staff: 345, hours: 2820, labor_cost: 88500, efficiency: 94.5, overtime: 350 },
+    { date: "06-30", staff: 342, hours: 2804, labor_cost: 87800, efficiency: 95.2, overtime: 320 }
   ];
 
   // 5. KPI formulas metadata
@@ -225,6 +225,38 @@ export function getMockDashboardData(date: string): DashboardResponse {
       labor_cost_rate: 22.4,
       unit_hour_labor_cost: 31.3,
       coverage_rate: 94.2,
+      
+      workforce_load: {
+        segments: [
+          {
+            label: "职员",
+            worked_employee_count: 45,
+            total_work_hours: 360,
+            overtime_employee_count: 5,
+            overtime_work_hours: 15,
+            load_percent: 85,
+            note: "职员工作负荷正常，加班呈周期性分布。"
+          },
+          {
+            label: "自有员工",
+            worked_employee_count: 180,
+            total_work_hours: 1480,
+            overtime_employee_count: 32,
+            overtime_work_hours: 120,
+            load_percent: 102,
+            note: "生产主力，负荷处于饱和警戒线。"
+          },
+          {
+            label: "小时工",
+            worked_employee_count: 117,
+            total_work_hours: 964,
+            overtime_employee_count: 11,
+            overtime_work_hours: 48,
+            load_percent: 112,
+            note: "小时工负荷偏高，主要应对生产波峰排班。"
+          }
+        ]
+      },
 
       total_staff_compare: 1.2,
       production_hours_compare: 3.5,
@@ -252,6 +284,7 @@ export function getMockDashboardData(date: string): DashboardResponse {
         efficiency_index: 94.5,
         rule_status: "normal",
         manager: "王志刚",
+        exception_count: 2,
         top_staff: [
           { name: "李建国", job_number: "XY0120", hours: 196, risk_score: 12 },
           { name: "张芳", job_number: "XY0158", hours: 184, risk_score: 8 },
@@ -270,6 +303,7 @@ export function getMockDashboardData(date: string): DashboardResponse {
         efficiency_index: 91.2,
         rule_status: "warning",
         manager: "徐丽",
+        exception_count: 8,
         top_staff: [
           { name: "刘开山", job_number: "XY0221", hours: 210, risk_score: 48 },
           { name: "孙利", job_number: "XY0244", hours: 198, risk_score: 35 },
@@ -288,6 +322,7 @@ export function getMockDashboardData(date: string): DashboardResponse {
         efficiency_index: 87.8,
         rule_status: "danger",
         manager: "陈建国",
+        exception_count: 15,
         top_staff: [
           { name: "刘伟", job_number: "XY0056", hours: 228, risk_score: 82 },
           { name: "钱华", job_number: "XY0311", hours: 204, risk_score: 64 },
@@ -306,6 +341,7 @@ export function getMockDashboardData(date: string): DashboardResponse {
         efficiency_index: 95.0,
         rule_status: "normal",
         manager: "赵海",
+        exception_count: 0,
         top_staff: [
           { name: "徐大宏", job_number: "XY0401", hours: 168, risk_score: 5 },
           { name: "马爱珍", job_number: "XY0412", hours: 162, risk_score: 2 }
@@ -323,6 +359,7 @@ export function getMockDashboardData(date: string): DashboardResponse {
         efficiency_index: 93.4,
         rule_status: "normal",
         manager: "杨兰",
+        exception_count: 1,
         top_staff: [
           { name: "陈林", job_number: "XY0288", hours: 174, risk_score: 10 }
         ]
@@ -339,6 +376,7 @@ export function getMockDashboardData(date: string): DashboardResponse {
         efficiency_index: 89.5,
         rule_status: "warning",
         manager: "高伟",
+        exception_count: 4,
         top_staff: [
           { name: "张强", job_number: "XY0032", hours: 208, risk_score: 45 }
         ]

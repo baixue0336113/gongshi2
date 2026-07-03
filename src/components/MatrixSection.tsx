@@ -341,9 +341,19 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
       const cost = daily.cost !== undefined ? daily.cost : 0;
       const people = daily.people !== undefined ? daily.people : 0;
       if (hours === 0 && cost === 0) return "-";
+      
+      const peopleCount = people > 0 ? people : 1;
+      const deviation = hours - peopleCount * 8;
+      const isDevPositive = deviation > 0;
+      const devText = deviation === 0 ? "±0" : (isDevPositive ? `+${deviation.toFixed(1)}` : `${deviation.toFixed(1)}`);
+      const devColor = deviation === 0 ? "text-slate-400" : (isDevPositive ? "text-rose-500 font-bold" : "text-emerald-500 font-bold");
+
       return (
         <div className="flex flex-col items-center justify-center py-0.5 leading-none">
-          <span className="font-semibold">{hours}h</span>
+          <span className="font-semibold flex items-center gap-0.5">
+            {hours}h
+            <span className={`text-[7px] scale-90 ${devColor}`}>({devText})</span>
+          </span>
           <span className="text-[7.5px] text-slate-400 mt-0.5 font-normal">¥{cost} ({people}人)</span>
         </div>
       );
@@ -353,9 +363,21 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
     const hours = daily.hours !== undefined ? daily.hours : 0;
     const cost = daily.cost !== undefined ? daily.cost : 0;
     if (hours === 0 && cost === 0) return "-";
+
+    const peopleCount = daily.people !== undefined ? daily.people : 1;
+    const deviation = hours - peopleCount * 8;
+    const isDevPositive = deviation > 0;
+    const devText = deviation === 0 ? "±0" : (isDevPositive ? `+${deviation.toFixed(1)}` : `${deviation.toFixed(1)}`);
+    const devColor = deviation === 0 ? "text-slate-400" : (isDevPositive ? "text-rose-500 font-bold" : "text-emerald-500 font-bold");
+
     return (
       <div className="flex flex-col items-center justify-center py-0.5 leading-none relative">
-        <span className="font-semibold">{hours}h</span>
+        <span className="font-semibold flex items-center gap-0.5">
+          {hours}h
+          <span className={`text-[7px] scale-90 ${devColor}`} title={`偏差基准: ${peopleCount * 8}h`}>
+            ({devText})
+          </span>
+        </span>
         <span className="text-[7.5px] text-slate-400 mt-0.5 font-normal flex items-center justify-center gap-0.5">
           ¥{cost}
           {isFallback && <span className="text-[7px] font-bold text-red-500" title="工资保底兜底保障">*</span>}
@@ -449,10 +471,11 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
     };
   }).filter((item) => item.value > 0);
 
-  // Compute daily sum row totals
+  // Compute daily sum row totals (parent rows only to prevent double counting)
   const getDailySum = (day: string) => {
     let sum = 0;
-    dynamicMatrix.rows.forEach(row => {
+    const parentRows = dynamicMatrix.rows.filter(row => !row.parent_id && !row.name.includes("└"));
+    parentRows.forEach(row => {
       const dVal = row.daily[day];
       if (dVal) {
         if (viewMode === "hours") {
@@ -469,79 +492,85 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
     return sum;
   };
 
-  // Grand total for daily sums
+  // Grand total for daily sums (parent rows only to prevent double counting)
   const getGrandTotal = () => {
     let sum = 0;
-    dynamicMatrix.rows.forEach(row => {
+    const parentRows = dynamicMatrix.rows.filter(row => !row.parent_id && !row.name.includes("└"));
+    parentRows.forEach(row => {
       if (viewMode === "hours") sum += parseFloat(row.total_hours || 0);
       else if (viewMode === "cost") sum += parseFloat(row.total_cost || 0);
       else if (viewMode === "qty") sum += parseFloat(row.total_qty || 0);
-      else if (viewMode === "people") sum += parseFloat(row.attendance_days || 0);
+      else if (viewMode === "people") sum += parseFloat(row.attendance_days || row.total_people || 0);
     });
     return sum;
   };
 
-  // Render KBI Cards dynamically according to scope and specifications
+  // Render KBI Cards dynamically according to scope and specifications (recalculated dynamically)
   const renderKbiCards = () => {
     const hasFilter = selectedDept !== "全部部门" || keyword.trim() !== "";
     const summary = dynamicMatrix.summary || {};
-    const totalHours = (hasFilter || summary.total_hours === undefined) ? dynamicMatrix.rows.reduce((acc, r) => acc + (r.total_hours || 0), 0) : summary.total_hours;
-    const totalCost = (hasFilter || summary.total_cost === undefined) ? dynamicMatrix.rows.reduce((acc, r) => acc + (r.total_cost || 0), 0) : summary.total_cost;
-    const totalQty = (hasFilter || summary.total_qty === undefined) ? dynamicMatrix.rows.reduce((acc, r) => acc + (r.total_qty || 0), 0) : summary.total_qty;
-    const totalPeople = (hasFilter || summary.total_people === undefined) ? dynamicMatrix.rows.reduce((acc, r) => acc + (r.attendance_days || r.total_people || 0), 0) : summary.total_people;
+    
+    // Filter parent rows to prevent double counting
+    const activeRows = dynamicMatrix.rows.filter(r => !r.parent_id && !r.name.includes("└"));
+    const activeCount = activeRows.length;
+
+    const totalHours = (hasFilter || summary.total_hours === undefined) ? activeRows.reduce((acc, r) => acc + (r.total_hours || 0), 0) : summary.total_hours;
+    const totalCost = (hasFilter || summary.total_cost === undefined) ? activeRows.reduce((acc, r) => acc + (r.total_cost || 0), 0) : summary.total_cost;
+    const totalQty = (hasFilter || summary.total_qty === undefined) ? activeRows.reduce((acc, r) => acc + (r.total_qty || 0), 0) : summary.total_qty;
+    const totalPeople = (hasFilter || summary.total_people === undefined) ? activeRows.reduce((acc, r) => acc + (r.attendance_days || r.total_people || 0), 0) : summary.total_people;
 
     let cards: Array<{ label: string, value: string | number, color: string, icon: any }> = [];
 
     if (scope === "baimao") {
       cards = [
         { label: "矩阵周期", value: selectedMonth, color: "bg-orange-50 text-orange-600 border-orange-200", icon: Calendar },
-        { label: "计费项目", value: `${dynamicMatrix.rows.length} 个`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
+        { label: "计费项目", value: `${activeCount} 个`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
         { label: "累计数量", value: `${Math.round(totalQty).toLocaleString()} 箱`, color: "bg-teal-50 text-teal-600 border-teal-200", icon: Layers },
         { label: "清洗成本", value: `¥${Math.round(totalCost).toLocaleString()}`, color: "bg-indigo-50 text-indigo-600 border-indigo-200", icon: DollarSign }
       ];
     } else if (scope === "campus") {
       cards = [
         { label: "矩阵周期", value: selectedMonth, color: "bg-orange-50 text-orange-600 border-orange-200", icon: Calendar },
-        { label: "兼职人数", value: `${Math.round(totalPeople || dynamicMatrix.rows.length)} 人`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
+        { label: "兼职人数", value: `${Math.round(totalPeople || activeCount)} 人`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
         { label: "累计工时", value: `${Math.round(totalHours).toLocaleString()} h`, color: "bg-teal-50 text-teal-600 border-teal-200", icon: Clock },
         { label: "人工成本", value: `¥${Math.round(totalCost).toLocaleString()}`, color: "bg-indigo-50 text-indigo-600 border-indigo-200", icon: DollarSign }
       ];
     } else if (scope === "convenience") {
       cards = [
         { label: "矩阵周期", value: selectedMonth, color: "bg-orange-50 text-orange-600 border-orange-200", icon: Calendar },
-        { label: "核对人数", value: `${Math.round(totalPeople || dynamicMatrix.rows.length)} 人`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
+        { label: "核对人数", value: `${Math.round(totalPeople || activeCount)} 人`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
         { label: "累计工时", value: `${Math.round(totalHours).toLocaleString()} h`, color: "bg-teal-50 text-teal-600 border-teal-200", icon: Clock },
         { label: "人工成本", value: `¥${Math.round(totalCost).toLocaleString()}`, color: "bg-indigo-50 text-indigo-600 border-indigo-200", icon: DollarSign }
       ];
     } else if (scope === "third_party") {
       cards = [
         { label: "矩阵周期", value: selectedMonth, color: "bg-orange-50 text-orange-600 border-orange-200", icon: Calendar },
-        { label: "核对人数", value: `${Math.round(totalPeople || dynamicMatrix.rows.length)} 人`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
+        { label: "核对人数", value: `${Math.round(totalPeople || activeCount)} 人`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
         { label: "累计工时", value: `${Math.round(totalHours).toLocaleString()} h`, color: "bg-teal-50 text-teal-600 border-teal-200", icon: Clock },
         { label: "人工成本", value: `¥${Math.round(totalCost).toLocaleString()}`, color: "bg-indigo-50 text-indigo-600 border-indigo-200", icon: DollarSign }
       ];
     } else if (scope === "work_matrix") {
-      const avgHours = dynamicMatrix.rows.length > 0 ? (totalHours / dynamicMatrix.rows.length).toFixed(1) : "0";
+      const avgHours = activeCount > 0 ? (totalHours / activeCount).toFixed(1) : "0";
       cards = [
         { label: "矩阵周期", value: dynamicMatrix.days.length > 0 ? `${dynamicMatrix.days[0]} ~ ${dynamicMatrix.days[dynamicMatrix.days.length-1]}` : selectedDate, color: "bg-orange-50 text-orange-600 border-orange-200", icon: Calendar },
-        { label: "核对人数", value: `${dynamicMatrix.rows.length} 人`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
+        { label: "核对人数", value: `${activeCount} 人`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
         { label: "确认工时", value: `${Math.round(totalHours).toLocaleString()} h`, color: "bg-teal-50 text-teal-600 border-teal-200", icon: Clock },
         { label: "人均工时", value: `${avgHours} h`, color: "bg-indigo-50 text-indigo-600 border-indigo-200", icon: HelpCircle }
       ];
     } else if (scope === "student_meal_cost") {
-      const avgCost = dynamicMatrix.rows.length > 0 ? Math.round(totalCost / dynamicMatrix.rows.length) : 0;
+      const avgCost = activeCount > 0 ? Math.round(totalCost / activeCount) : 0;
       cards = [
         { label: "核算周期", value: dynamicMatrix.days.length > 0 ? `${dynamicMatrix.days[0]} ~ ${dynamicMatrix.days[dynamicMatrix.days.length-1]}` : selectedDate, color: "bg-orange-50 text-orange-600 border-orange-200", icon: Calendar },
-        { label: "核算对象数", value: `${dynamicMatrix.rows.length} 个`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
+        { label: "核算对象数", value: `${activeCount} 个`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
         { label: "核算总额", value: `¥${Math.round(totalCost).toLocaleString()}`, color: "bg-teal-50 text-teal-600 border-teal-200", icon: DollarSign },
         { label: "平均成本 / 对象", value: `¥${avgCost.toLocaleString()}`, color: "bg-indigo-50 text-indigo-600 border-indigo-200", icon: HelpCircle }
       ];
     } else {
       // total_cost_matrix (总成本矩阵)
-      const avgCost = dynamicMatrix.rows.length > 0 ? Math.round(totalCost / dynamicMatrix.rows.length) : 0;
+      const avgCost = activeCount > 0 ? Math.round(totalCost / activeCount) : 0;
       cards = [
         { label: "核算周期", value: dynamicMatrix.days.length > 0 ? `${dynamicMatrix.days[0]} ~ ${dynamicMatrix.days[dynamicMatrix.days.length-1]}` : selectedDate, color: "bg-orange-50 text-orange-600 border-orange-200", icon: Calendar },
-        { label: "成本构成数", value: `${dynamicMatrix.rows.length} 项`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
+        { label: "成本构成数", value: `${activeCount} 项`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
         { label: "核定总成本", value: `¥${Math.round(totalCost).toLocaleString()}`, color: "bg-teal-50 text-teal-600 border-teal-200", icon: DollarSign },
         { label: "平均成本 / 项", value: `¥${avgCost.toLocaleString()}`, color: "bg-indigo-50 text-indigo-600 border-indigo-200", icon: HelpCircle }
       ];
@@ -830,13 +859,9 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold text-slate-400">导出类型:</span>
-            <button className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-md border border-slate-200 text-[10px] font-bold transition-all cursor-pointer">
-              Excel 账单
-            </button>
-            <button className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-md border border-slate-200 text-[10px] font-bold transition-all cursor-pointer">
-              PDF 确认单
-            </button>
+            <span className="text-[10px] bg-slate-50 border border-slate-200/80 px-2 py-0.5 rounded text-slate-500 font-bold">
+              对账单实时固化核准
+            </span>
           </div>
         </div>
 
@@ -911,9 +936,18 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
                   dynamicMatrix.rows.map((row) => (
                     <tr key={row.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="sticky left-0 bg-white font-bold text-slate-800 px-3 py-2 border-r border-slate-200 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.02)] truncate max-w-[110px]" title={row.name}>
-                        <div className="truncate text-slate-900 leading-tight">{row.name}</div>
+                        {(() => {
+                          const isChild = row.name.includes("└") || !!row.parent_id;
+                          const cleanName = row.name.replace(/^[ └]+/, "").trim();
+                          return (
+                            <div className="flex items-center gap-0.5 min-w-0">
+                              {isChild && <span className="text-orange-500 font-mono text-[9px] shrink-0 font-extrabold">└</span>}
+                              <div className="truncate text-slate-900 leading-tight font-extrabold">{cleanName}</div>
+                            </div>
+                          );
+                        })()}
                         <div className="text-[8px] text-slate-400 font-normal mt-0.5 truncate">
-                          {scope === "campus" && row.department_1 ? `${row.department_1} · ${row.department_2 || row.dept}` : (row.dept || "核心生产")}
+                          {row.department_1 ? `${row.department_1} > ${row.department_2 || row.dept}` : (row.dept || "核心生产")}
                         </div>
                       </td>
 

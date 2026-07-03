@@ -4,6 +4,20 @@ export interface DashboardMeta {
 }
 
 // 1. 经营总览 KPI Summary (Aligned with Xianyu Web Executive Cabin)
+export interface WorkforceSegment {
+  label: string; // "职员", "自有员工", "小时工"
+  worked_employee_count: number;
+  total_work_hours: number;
+  overtime_employee_count: number;
+  overtime_work_hours: number;
+  load_percent: number;
+  note: string;
+}
+
+export interface WorkforceLoad {
+  segments: WorkforceSegment[];
+}
+
 export interface SummaryKPI {
   total_staff: number;              // 员工总数
   production_hours: number;         // 所选日期生产工时 (h)
@@ -16,6 +30,7 @@ export interface SummaryKPI {
   labor_cost_rate: number;          // 人工成本率 (%)
   unit_hour_labor_cost: number;     // 单位工时人工成本 (元/h)
   coverage_rate: number;            // 工时覆盖率 (%)
+  workforce_load?: WorkforceLoad;   // 三类人员负荷数据
   
   // Compares
   total_staff_compare: number;
@@ -38,6 +53,7 @@ export interface TrendPoint {
   hours: number;
   labor_cost: number;
   efficiency: number;
+  overtime?: number; // 7天走势加班工时
 }
 
 // 2. 部门穿透 Item
@@ -53,6 +69,7 @@ export interface DepartmentItem {
   efficiency_index: number;        // 0-100 scale
   rule_status: "normal" | "warning" | "danger";
   manager: string;
+  exception_count?: number;        // 警示/异常记录数
   top_staff: Array<{ name: string; job_number: string; hours: number; risk_score: number }>;
 }
 
