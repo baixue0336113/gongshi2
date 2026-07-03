@@ -196,11 +196,12 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
               setDeptOptions(["全部部门", ...availableDepts]);
 
               // Calculate of summary based on active view filtering (with server fallbacks)
+              const hasFrontendFilter = selectedDept !== "全部部门" || keyword.trim() !== "";
               const summary = {
-                total_hours: serverSummary.total_hours !== undefined ? serverSummary.total_hours : filteredRows.reduce((acc, r) => acc + (r.total_hours || 0), 0),
-                total_cost: serverSummary.total_cost !== undefined ? serverSummary.total_cost : filteredRows.reduce((acc, r) => acc + (r.total_cost || 0), 0),
-                total_qty: serverSummary.total_qty !== undefined ? serverSummary.total_qty : filteredRows.reduce((acc, r) => acc + (r.total_qty || 0), 0),
-                total_people: serverSummary.total_people !== undefined ? serverSummary.total_people : filteredRows.reduce((acc, r) => acc + (r.attendance_days || 0), 0)
+                total_hours: (hasFrontendFilter || serverSummary.total_hours === undefined) ? filteredRows.reduce((acc, r) => acc + (r.total_hours || 0), 0) : serverSummary.total_hours,
+                total_cost: (hasFrontendFilter || serverSummary.total_cost === undefined) ? filteredRows.reduce((acc, r) => acc + (r.total_cost || 0), 0) : serverSummary.total_cost,
+                total_qty: (hasFrontendFilter || serverSummary.total_qty === undefined) ? filteredRows.reduce((acc, r) => acc + (r.total_qty || 0), 0) : serverSummary.total_qty,
+                total_people: (hasFrontendFilter || serverSummary.total_people === undefined) ? filteredRows.reduce((acc, r) => acc + (r.attendance_days || 0), 0) : serverSummary.total_people
               };
 
               setDynamicMatrix({
@@ -243,12 +244,33 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
         filteredRows = filteredRows.filter(r => r.name.toLowerCase().includes(kw));
       }
 
+      // Extract unique departments dynamically from initialData.rows
+      const parentDepts = (initialData.rows || [])
+        .filter(r => !r.parent_id && !r.name.includes("└"))
+        .map(r => r.name.trim());
+      
+      const extractedDepts = parentDepts.length > 0 
+        ? parentDepts 
+        : Array.from(new Set((initialData.rows || []).map(r => r.dept || r.name).filter(Boolean)));
+      
+      const uniqueDepts = Array.from(new Set(extractedDepts)).sort();
+
+      // Recalculate summary if there is active frontend filtering
+      const hasFrontendFilter = selectedDept !== "全部部门" || keyword.trim() !== "";
+      const baseSummary = initialData.summary || {};
+      const summary = {
+        total_hours: (hasFrontendFilter || baseSummary.total_hours === undefined) ? filteredRows.reduce((acc, r) => acc + (r.total_hours || 0), 0) : baseSummary.total_hours,
+        total_cost: (hasFrontendFilter || baseSummary.total_cost === undefined) ? filteredRows.reduce((acc, r) => acc + (r.total_cost || 0), 0) : baseSummary.total_cost,
+        total_qty: (hasFrontendFilter || baseSummary.total_qty === undefined) ? filteredRows.reduce((acc, r) => acc + (r.total_qty || 0), 0) : baseSummary.total_qty,
+        total_people: (hasFrontendFilter || baseSummary.total_people === undefined) ? filteredRows.reduce((acc, r) => acc + (r.attendance_days || r.total_people || 0), 0) : baseSummary.total_people
+      };
+
       setDynamicMatrix({
         days: initialData.days || [],
         rows: filteredRows,
-        summary: initialData.summary || {}
+        summary
       });
-      setDeptOptions(["全部部门", "学生餐一车间", "学生餐二车间", "方便菜加工部", "净菜生产线", "面点面食车间", "冷链物流配送部", "品质检验中心"]);
+      setDeptOptions(["全部部门", ...uniqueDepts]);
     }
   }, [scope, selectedMonth, selectedDept, keyword, initialData, isDemo, token]);
 
@@ -461,11 +483,12 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
 
   // Render KBI Cards dynamically according to scope and specifications
   const renderKbiCards = () => {
+    const hasFilter = selectedDept !== "全部部门" || keyword.trim() !== "";
     const summary = dynamicMatrix.summary || {};
-    const totalHours = summary.total_hours !== undefined ? summary.total_hours : dynamicMatrix.rows.reduce((acc, r) => acc + (r.total_hours || 0), 0);
-    const totalCost = summary.total_cost !== undefined ? summary.total_cost : dynamicMatrix.rows.reduce((acc, r) => acc + (r.total_cost || 0), 0);
-    const totalQty = summary.total_qty !== undefined ? summary.total_qty : dynamicMatrix.rows.reduce((acc, r) => acc + (r.total_qty || 0), 0);
-    const totalPeople = summary.total_people !== undefined ? summary.total_people : dynamicMatrix.rows.reduce((acc, r) => acc + (r.attendance_days || 0), 0);
+    const totalHours = (hasFilter || summary.total_hours === undefined) ? dynamicMatrix.rows.reduce((acc, r) => acc + (r.total_hours || 0), 0) : summary.total_hours;
+    const totalCost = (hasFilter || summary.total_cost === undefined) ? dynamicMatrix.rows.reduce((acc, r) => acc + (r.total_cost || 0), 0) : summary.total_cost;
+    const totalQty = (hasFilter || summary.total_qty === undefined) ? dynamicMatrix.rows.reduce((acc, r) => acc + (r.total_qty || 0), 0) : summary.total_qty;
+    const totalPeople = (hasFilter || summary.total_people === undefined) ? dynamicMatrix.rows.reduce((acc, r) => acc + (r.attendance_days || r.total_people || 0), 0) : summary.total_people;
 
     let cards: Array<{ label: string, value: string | number, color: string, icon: any }> = [];
 

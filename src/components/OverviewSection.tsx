@@ -271,7 +271,7 @@ export default function OverviewSection({
     cockpitInsights.push({
       type: "info",
       title: "驾驶舱经营提示",
-      content: "今日各项核心生产合规及成本指标均在设定范围，厂区工时数据运行平稳，无异常风险提示。",
+      content: "暂无足够数据生成经营提示",
       color: "border-l-4 border-blue-500 bg-blue-50/50"
     });
   }
