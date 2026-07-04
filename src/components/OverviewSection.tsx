@@ -56,6 +56,7 @@ interface OverviewSectionProps {
   efficiency?: EfficiencyDashboardData;
   cost?: CostCenterData;
   risk?: RiskData;
+  health?: { overallHealthScore?: number };
 }
 
 export default function OverviewSection({ 
@@ -66,7 +67,8 @@ export default function OverviewSection({
   supportHours,
   efficiency,
   cost,
-  risk
+  risk,
+  health
 }: OverviewSectionProps) {
   const { mode } = useDevice();
   const isFoldable = mode === "foldable-inner";
@@ -119,7 +121,7 @@ export default function OverviewSection({
   const sortedDeptsByHours = [...departments].sort((a, b) => b.total_hours - a.total_hours);
   const maxHoursDeptName = sortedDeptsByHours[0] ? sortedDeptsByHours[0].department_name : "暂无";
 
-  const overallHealthScore = Math.max(40, Math.min(100, 100 - (risk?.overview?.total_alerts || 0) * 2));
+  const overallHealthScore = health?.overallHealthScore;
 
   // --- Aligned 11 Core KBI Cards ---
   const kpis = [
@@ -218,7 +220,7 @@ export default function OverviewSection({
     { subject: "出勤率", value: summary.attendance_rate || 0, fullMark: 100 },
     { subject: "人均效率", value: Math.min(100, ((summary.avg_hours || 0) / 10) * 100), fullMark: 100 },
     { subject: "人工成本控制", value: Math.max(10, Math.min(100, 100 - (summary.labor_cost_rate || 0))), fullMark: 100 },
-    { subject: "考勤规则健康", value: overallHealthScore, fullMark: 100 },
+    { subject: "考勤规则健康", value: overallHealthScore !== undefined ? overallHealthScore : 0, fullMark: 100 },
     { subject: "工时对账覆盖", value: summary.coverage_rate || 0, fullMark: 100 }
   ];
 
@@ -231,7 +233,7 @@ export default function OverviewSection({
     cockpitInsights.push({
       type: "danger",
       title: "生产工时过载红线警报",
-      content: `${dangerDept.department_name}今日生产工时达 ${dangerDept.total_hours}h，异常警示记录较多，已突破合规阈值。建议负责人【${dangerDept.manager || "主管"}】立即介入核对排班。`,
+      content: `${dangerDept.department_name}今日生产工时达 ${dangerDept.total_hours}h，异常警示记录较多，已突破合规阈值。建议${dangerDept.manager ? `负责人【${dangerDept.manager}】` : "相关人员"}立即介入核对排班。`,
       color: "border-l-4 border-rose-500 bg-rose-50/50"
     });
   } else if (warningDept) {
@@ -268,19 +270,21 @@ export default function OverviewSection({
 
   if (summary && summary.labor_cost_rate !== undefined) {
     const costRate = summary.labor_cost_rate;
-    if (costRate > 25) {
+    const backendConclusion = (summary as any).labor_cost_conclusion;
+    
+    if (backendConclusion) {
       cockpitInsights.push({
-        type: "warning",
-        title: "人工成本营收占比偏高",
-        content: `今日人工成本占比高达 ${costRate}%，高于日常基准，请各车间核实闲置工时并严控不合理加班。`,
-        color: "border-l-4 border-rose-500 bg-rose-50/50"
+        type: costRate > 25 ? "warning" : "info",
+        title: "人工成本诊断",
+        content: backendConclusion,
+        color: costRate > 25 ? "border-l-4 border-rose-500 bg-rose-50/50" : "border-l-4 border-blue-500 bg-blue-50/50"
       });
     } else {
       cockpitInsights.push({
         type: "info",
-        title: "人工成本控制结构合理",
-        content: `今日人工成本占比稳定在 ${costRate}%，时薪构成及人均折算产值效能保持在健康对账区间。`,
-        color: "border-l-4 border-blue-500 bg-blue-50/50"
+        title: "人工成本比率",
+        content: `今日结算人工成本占总产值营收比例为 ${costRate}%。`,
+        color: "border-l-4 border-slate-500 bg-slate-50/50"
       });
     }
   }
@@ -296,11 +300,7 @@ export default function OverviewSection({
   }
 
   // --- Three categories personnel load breakdown ---
-  const workforceSegments = summary.workforce_load?.segments || [
-    { label: "职员", worked_employee_count: 45, total_work_hours: 360, overtime_employee_count: 5, overtime_work_hours: 15, load_percent: 85, note: "职员工作负荷正常，加班呈周期性分布。" },
-    { label: "自有员工", worked_employee_count: 180, total_work_hours: 1480, overtime_employee_count: 32, overtime_work_hours: 120, load_percent: 102, note: "生产主力，负荷处于饱和警戒线。" },
-    { label: "小时工", worked_employee_count: 117, total_work_hours: 964, overtime_employee_count: 11, overtime_work_hours: 48, load_percent: 112, note: "临时调配小时工负荷高，主要应对生产波峰。" }
-  ];
+  const workforceSegments = summary.workforce_load?.segments;
 
   // --- Dynamic Workshop Table ---
   const workshopEfficiency = departments.map(dept => {
@@ -320,7 +320,7 @@ export default function OverviewSection({
       score: dept.efficiency_index || 0,
       status,
       desc: dept.rule_status === "danger" 
-        ? `异常工时 ${dept.overtime_hours}h，主管: ${dept.manager || "-"}` 
+        ? `异常工时 ${dept.overtime_hours}h${dept.manager ? `，主管: ${dept.manager}` : ""}` 
         : `运行平稳，人均 ${dept.avg_hours}h`,
       statusColor
     };
@@ -328,14 +328,14 @@ export default function OverviewSection({
 
   // --- 7-Day Trend data calculation (with double Y-axis health index calculation) ---
   const trendChartData = trendData.slice(-7).map(item => {
-    const healthScore = item.overtime !== undefined 
-      ? Number(Math.max(80, 100 - (item.overtime / item.hours) * 30).toFixed(1))
-      : Number(Math.max(80, 100 - (Math.random() * 15))).toFixed(1);
     return {
       ...item,
-      healthScore: parseFloat(String(healthScore))
+      healthScore: item.overtime !== undefined 
+        ? parseFloat(Number(Math.max(80, 100 - (item.overtime / (item.hours || 1)) * 30)).toFixed(1))
+        : undefined
     };
   });
+  const hasHealthData = trendChartData.some(item => item.healthScore !== undefined);
 
   // --- Bar chart data for top 12 departments ---
   const barChartData = [...departments]
@@ -404,26 +404,32 @@ export default function OverviewSection({
           
           <div className="flex items-center gap-3 py-1">
             {/* Health Score Ring Gauge */}
-            <div className="relative flex items-center justify-center shrink-0">
-              <svg className="w-16 h-16 transform -rotate-90">
-                <circle cx="32" cy="32" r="28" stroke="#f1f5f9" strokeWidth="4" fill="transparent" />
-                <circle 
-                  cx="32" 
-                  cy="32" 
-                  r="28" 
-                  stroke={overallHealthScore >= 90 ? "#10b981" : overallHealthScore >= 80 ? "#f59e0b" : "#f43f5e"} 
-                  strokeWidth="4" 
-                  fill="transparent" 
-                  strokeDasharray={`${2 * Math.PI * 28}`}
-                  strokeDashoffset={`${2 * Math.PI * 28 * (1 - overallHealthScore / 100)}`}
-                  strokeLinecap="round"
-                />
-              </svg>
-              <div className="absolute flex flex-col items-center">
-                <span className="text-sm font-extrabold text-slate-800 font-mono leading-none">{overallHealthScore}</span>
-                <span className="text-[8px] text-slate-400 font-bold mt-0.5">健康分</span>
+            {overallHealthScore !== undefined ? (
+              <div className="relative flex items-center justify-center shrink-0">
+                <svg className="w-16 h-16 transform -rotate-90">
+                  <circle cx="32" cy="32" r="28" stroke="#f1f5f9" strokeWidth="4" fill="transparent" />
+                  <circle 
+                    cx="32" 
+                    cy="32" 
+                    r="28" 
+                    stroke={overallHealthScore >= 90 ? "#10b981" : overallHealthScore >= 80 ? "#f59e0b" : "#f43f5e"} 
+                    strokeWidth="4" 
+                    fill="transparent" 
+                    strokeDasharray={`${2 * Math.PI * 28}`}
+                    strokeDashoffset={`${2 * Math.PI * 28 * (1 - overallHealthScore / 100)}`}
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <div className="absolute flex flex-col items-center">
+                  <span className="text-sm font-extrabold text-slate-800 font-mono leading-none">{overallHealthScore}</span>
+                  <span className="text-[8px] text-slate-400 font-bold mt-0.5">健康分</span>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center shrink-0 w-16 h-16 rounded-full border-4 border-slate-100 bg-slate-50 text-center">
+                <span className="text-[8px] text-slate-400 px-1 leading-tight font-bold">暂无规则<br/>健康分数据</span>
+              </div>
+            )}
 
             {/* 4 core metrics displayed side-by-side inside card A */}
             <div className="flex-1 grid grid-cols-2 gap-x-2 gap-y-1.5 text-[10px] font-medium text-slate-500">
@@ -578,14 +584,18 @@ export default function OverviewSection({
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis dataKey="date" stroke="#94a3b8" fontSize={9} tickLine={false} />
                   <YAxis yAxisId="left" stroke="#f97316" fontSize={9} tickLine={false} label={{ value: "生产工时 (h)", angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#f97316', fontSize: 8 } }} />
-                  <YAxis yAxisId="right" orientation="right" stroke="#10b981" fontSize={9} tickLine={false} domain={[70, 100]} label={{ value: "健康度得分 (分)", angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: '#10b981', fontSize: 8 } }} />
+                  {hasHealthData && (
+                    <YAxis yAxisId="right" orientation="right" stroke="#10b981" fontSize={9} tickLine={false} domain={[70, 100]} label={{ value: "健康度得分 (分)", angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: '#10b981', fontSize: 8 } }} />
+                  )}
                   <Tooltip 
                     contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}
                     labelStyle={{ color: "#475569", fontWeight: "bold", fontSize: 10 }}
                     itemStyle={{ fontSize: 10, padding: "2px 0" }}
                   />
                   <Area yAxisId="left" type="monotone" name="生产工时 (h)" dataKey="hours" stroke="#f97316" fillOpacity={1} fill="url(#colorHoursDeep)" strokeWidth={2} />
-                  <Line yAxisId="right" type="monotone" name="对账健康度得分 (分)" dataKey="healthScore" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  {hasHealthData && (
+                    <Line yAxisId="right" type="monotone" name="对账健康度得分 (分)" dataKey="healthScore" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  )}
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -674,43 +684,50 @@ export default function OverviewSection({
             </div>
 
             <div className="space-y-3">
-              {workforceSegments.map((seg, i) => {
-                const isOverloaded = seg.load_percent > 100;
-                const statusColor = seg.load_percent > 110 
-                  ? "bg-rose-50 text-rose-700 border-rose-200" 
-                  : isOverloaded 
-                  ? "bg-amber-50 text-amber-700 border-amber-200" 
-                  : "bg-emerald-50 text-emerald-700 border-emerald-200";
-                
-                return (
-                  <div key={i} className="bg-slate-50/60 p-2.5 rounded-lg border border-slate-100 flex flex-col justify-between text-xs space-y-1.5 hover:border-slate-200 transition-colors">
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-slate-800 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                        {seg.label}
-                      </span>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold border ${statusColor}`}>
-                        负荷度 {seg.load_percent}%
-                      </span>
-                    </div>
+              {workforceSegments && workforceSegments.length > 0 ? (
+                <>
+                  {workforceSegments.map((seg, i) => {
+                    const isOverloaded = seg.load_percent > 100;
+                    const statusColor = seg.load_percent > 110 
+                      ? "bg-rose-50 text-rose-700 border-rose-200" 
+                      : isOverloaded 
+                      ? "bg-amber-50 text-amber-700 border-amber-200" 
+                      : "bg-emerald-50 text-emerald-700 border-emerald-200";
                     
-                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] text-slate-500 font-medium">
-                      <div>在岗人数: <span className="font-bold text-slate-700 font-mono">{seg.worked_employee_count} 人</span></div>
-                      <div>总工时: <span className="font-bold text-slate-700 font-mono">{seg.total_work_hours} h</span></div>
-                      <div>加班人数: <span className="font-bold text-slate-700 font-mono">{seg.overtime_employee_count} 人</span></div>
-                      <div>8h外工时: <span className="font-bold text-slate-700 font-mono">{seg.overtime_work_hours} h</span></div>
-                    </div>
-                    
-                    <p className="text-[9px] text-slate-400 font-medium leading-normal italic border-t border-slate-200/50 pt-1">
-                      运行状态: {seg.note}
-                    </p>
+                    return (
+                      <div key={i} className="bg-slate-50/60 p-2.5 rounded-lg border border-slate-100 flex flex-col justify-between text-xs space-y-1.5 hover:border-slate-200 transition-colors">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                            {seg.label}
+                          </span>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold border ${statusColor}`}>
+                            负荷度 {seg.load_percent}%
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] text-slate-500 font-medium">
+                          <div>在岗人数: <span className="font-bold text-slate-700 font-mono">{seg.worked_employee_count} 人</span></div>
+                          <div>总工时: <span className="font-bold text-slate-700 font-mono">{seg.total_work_hours} h</span></div>
+                          <div>加班人数: <span className="font-bold text-slate-700 font-mono">{seg.overtime_employee_count} 人</span></div>
+                          <div>8h外工时: <span className="font-bold text-slate-700 font-mono">{seg.overtime_work_hours} h</span></div>
+                        </div>
+                        
+                        <p className="text-[9px] text-slate-400 font-medium leading-normal italic border-t border-slate-200/50 pt-1">
+                          运行状态: {seg.note}
+                        </p>
+                      </div>
+                    );
+                  })}
+                  <div className="text-[8.5px] text-slate-400 font-semibold bg-slate-50 p-1.5 rounded leading-relaxed border border-slate-100">
+                    * 统计口径说明：管理职员负荷按钉钉有效加班申请单统计；自有员工与外包小时工负荷按每日实际在岗 8 小时外的核定工时统计。
                   </div>
-                );
-              })}
-              
-              <div className="text-[8.5px] text-slate-400 font-semibold bg-slate-50 p-1.5 rounded leading-relaxed border border-slate-100">
-                * 统计口径说明：管理职员负荷按钉钉有效加班申请单统计；自有员工与外包小时工负荷按每日实际在岗 8 小时外的核定工时统计。
-              </div>
+                </>
+              ) : (
+                <div className="text-[10px] text-slate-400 bg-slate-50 p-4 rounded-lg text-center border border-slate-100">
+                  暂无人员类型负荷数据
+                </div>
+              )}
             </div>
           </div>
 

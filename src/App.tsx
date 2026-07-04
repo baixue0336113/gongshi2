@@ -144,6 +144,7 @@ export default function App() {
               efficiency={dashboardData.efficiency_dashboard}
               cost={dashboardData.cost}
               risk={dashboardData.risk}
+              health={dashboardData.health}
             />
           )}
 

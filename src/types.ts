@@ -426,6 +426,9 @@ export interface DashboardResponse {
   position_cost: PositionCostData;
   risk: RiskData;
   strategic: StrategicData;
+  health?: {
+    overallHealthScore?: number;
+  };
 }
 
 // Scope response for the 4 newly requested monthly check modules
