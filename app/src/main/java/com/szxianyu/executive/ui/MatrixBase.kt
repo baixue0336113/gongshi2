@@ -560,7 +560,7 @@ fun MatrixBase(
                         if (title.contains("学生餐")) {
                             // Employee Type
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                Text("员工:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Slate500)
+                                Text("员工类型:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Slate500)
                                 Spacer(Modifier.width(4.dp))
                                 var empTypeExpanded by remember { mutableStateOf(false) }
                                 Box(Modifier.weight(1f)) {
@@ -710,7 +710,7 @@ fun MatrixBase(
                 ) {
                     Column(Modifier.padding(12.dp)) {
                         Text(
-                            if (mockTitle == "总成本矩阵") "每日总成本趋势" else if (title.contains("成本")) "每日归集核算成本趋势" else "每日核准生产工时走势",
+                            if (mockTitle == "总成本矩阵") "每日总成本趋势" else if (mockTitle == "学生餐成本") "每日学生餐人工成本趋势" else if (title.contains("成本")) "每日归集核算成本趋势" else "每日核准生产工时走势",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             color = Slate700
@@ -720,7 +720,9 @@ fun MatrixBase(
                             points = trendChartPoints,
                             modifier = Modifier.fillMaxSize(),
                             color1 = Orange500,
-                            title1 = if (mockTitle == "总成本矩阵" || title.contains("成本")) "日总成本 (¥)" else "核准工时 (h)"
+                            title1 = if (mockTitle == "总成本矩阵" || title.contains("成本")) "日总成本 (¥)" else "核准工时 (h)",
+                            title2 = null,
+                            showAverageLine = mockTitle == "总成本矩阵"
                         )
                     }
                 }
@@ -1064,7 +1066,7 @@ fun MatrixBase(
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Icon(Icons.Default.Analytics, contentDescription = null, tint = Orange500, modifier = Modifier.size(16.dp))
                             Text(
-                                "成本与工时核算穿透",
+                                if (mockTitle == "学生餐成本") "成本明细穿透: ${info.deptName} (${info.date})" else "成本与工时核算穿透",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Black,
                                 color = Slate800
@@ -1076,14 +1078,16 @@ fun MatrixBase(
                     }
 
                     // Target details
-                    Surface(
-                        color = Slate50,
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("工作部门: ${info.deptName}", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = Slate800)
-                            Text("日期: ${info.date}", fontSize = 10.sp, color = Slate500, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                    if (mockTitle != "学生餐成本") {
+                        Surface(
+                            color = Slate50,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("工作部门: ${info.deptName}", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = Slate800)
+                                Text("日期: ${info.date}", fontSize = 10.sp, color = Slate500, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                            }
                         }
                     }
 
@@ -1124,7 +1128,7 @@ fun MatrixBase(
                     }
 
                     // Drilldown employee table
-                    Text("日出勤人员劳务构成 (明细穿透)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Slate700)
+                    Text(if (mockTitle == "学生餐成本") "人员成本明细 Top 10" else "日出勤人员劳务构成 (明细穿透)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Slate700)
                     Surface(
                         border = BorderStroke(1.dp, Slate200),
                         shape = RoundedCornerShape(8.dp),
@@ -1156,8 +1160,6 @@ fun MatrixBase(
                                 val cleanDeptName = rowName.replace("  └ ", "").trim()
                                 val seed = cleanDeptName.hashCode() + info.date.hashCode()
                                 val random = java.util.Random(seed.toLong())
-                                val firstNames = listOf("张", "李", "王", "刘", "陈", "杨", "赵", "黄", "周", "吴", "徐", "孙")
-                                val lastNames = listOf("伟", "芳", "娜", "秀英", "敏", "静", "丽", "强", "磊", "洋", "艳", "勇", "军", "杰", "超")
                                 
                                 val totalValue = info.value
                                 val peopleCount = when {
@@ -1166,10 +1168,10 @@ fun MatrixBase(
                                     else -> 3
                                 }
                                 
+                                val letters = listOf("A", "B", "C", "D", "E", "F", "G", "H", "I", "J")
+                                
                                 List(peopleCount) { i ->
-                                    val fName = firstNames[random.nextInt(firstNames.size)]
-                                    val lName = lastNames[random.nextInt(lastNames.size)]
-                                    val empName = fName + lName
+                                    val empName = "演示人员 ${if (i < letters.size) letters[i] else (i + 1).toString()}"
                                     val empType = when (random.nextInt(3)) {
                                         0 -> "自有员工"
                                         1 -> "小时工"

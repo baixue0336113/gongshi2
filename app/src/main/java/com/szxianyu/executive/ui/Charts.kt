@@ -61,7 +61,8 @@ fun CustomAreaChart(
     color1: Color = Orange500,
     color2: Color = Emerald500,
     title1: String = "生产工时 (h)",
-    title2: String? = "对账健康度 (分)"
+    title2: String? = "对账健康度 (分)",
+    showAverageLine: Boolean = false
 ) {
     if (points.isEmpty()) return
 
@@ -178,6 +179,19 @@ fun CustomAreaChart(
                         color = Color.White,
                         radius = 4f,
                         center = Offset(x, y)
+                    )
+                }
+
+                // Draw Average Line 1
+                if (showAverageLine && points.isNotEmpty()) {
+                    val avgVal1 = points.map { it.value1 }.average().toFloat()
+                    val avgY = paddingTop + chartHeight * (1f - (avgVal1 / maxVal1))
+                    drawLine(
+                        color = color1.copy(alpha = 0.5f),
+                        start = Offset(paddingLeft, avgY),
+                        end = Offset(width - paddingRight, avgY),
+                        strokeWidth = 2f,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
                     )
                 }
 
