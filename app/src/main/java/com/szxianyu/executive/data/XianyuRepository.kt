@@ -16,7 +16,8 @@ class XianyuRepository(private val apiService: XianyuApiService) {
         return rows.mapIndexed { index, name ->
             val daily = (1..31).associate { day ->
                 val dayStr = day.toString()
-                val value = (80..160).random()
+                // Use a stable deterministic formula instead of random()
+                val value = 100 + (index * 5) + (day % 15)
                 dayStr to MatrixCellData(
                     value = value.toString(),
                     subValue = if (title.contains("成本")) "¥${(value * 30)}" else "${(value / 8)}人",

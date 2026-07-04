@@ -22,6 +22,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.szxianyu.executive.ui.theme.*
+import com.szxianyu.executive.data.XianyuRepository
+import com.szxianyu.executive.data.api.XianyuApiService
+import com.szxianyu.executive.ui.*
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 enum class Screen(val title: String, val icon: ImageVector) {
     Overview("1. 经营总览", Icons.Default.Dashboard),
@@ -42,16 +47,9 @@ enum class Screen(val title: String, val icon: ImageVector) {
     ThirdParty("16. 第三方工时/成本", Icons.Default.Layers)
 }
 
-import com.szxianyu.executive.data.XianyuRepository
-import com.szxianyu.executive.data.api.XianyuApiService
-import com.szxianyu.executive.ui.*
-import com.szxianyu.executive.ui.theme.*
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-
 class MainActivity : ComponentActivity() {
     private val retrofit = Retrofit.Builder()
-        .baseUrl("https://ais-dev-sezzag3syker4gzyr6nhpp-670536860579.asia-east1.run.app") // Placeholder, should be dynamic if needed
+        .baseUrl("https://www.szxianyu.net/")
         .addConverterFactory(GsonConverterFactory.create())
         .build()
     
