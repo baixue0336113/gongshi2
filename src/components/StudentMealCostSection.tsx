@@ -24,14 +24,42 @@ export default function StudentMealCostSection({ initialData, selectedDate }: { 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalData, setModalData] = useState<any>(null);
 
-  // Derive dynamic values
-  const totalCost = initialData.summary?.total_cost || 0;
-  const activeCount = initialData.rows.length;
+  // Apply real filtering
+  const filteredRows = initialData.rows.map(row => {
+    const filteredDaily: { [key: string]: any } = {};
+    let rowTotal = 0;
+    
+    initialData.days.forEach(day => {
+      const d = row.daily[day];
+      if (!d) return;
+
+      let cost = d.cost || 0;
+      
+      // Cost Type Filtering
+      if (costType === "normal") {
+        cost = (d.regular_hours || (d.hours || 0)) * (d.hourly_rate || 28);
+      } else if (costType === "overtime") {
+        cost = (d.overtime_hours || 0) * (d.overtime_hourly_rate || 33);
+      } else if (costType === "fallback") {
+        cost = d.is_fallback_rate ? (d.cost || 0) : 0;
+      }
+      
+      if (cost > 0) {
+        filteredDaily[day] = { ...d, cost };
+        rowTotal += cost;
+      }
+    });
+
+    return { ...row, daily: filteredDaily, total_cost: rowTotal };
+  }).filter(row => row.total_cost > 0);
+
+  const totalCost = filteredRows.reduce((sum, r) => sum + r.total_cost, 0);
+  const activeCount = filteredRows.length;
   const avgCost = activeCount > 0 ? totalCost / activeCount : 0;
 
   const trendData = initialData.days.map(day => {
     let dayTotal = 0;
-    initialData.rows.forEach(row => {
+    filteredRows.forEach(row => {
       dayTotal += (row.daily[day]?.cost || 0);
     });
     return {
@@ -44,6 +72,16 @@ export default function StudentMealCostSection({ initialData, selectedDate }: { 
     const dVal = row.daily[day] || {};
     if (!dVal.cost) return;
     
+    // In a real app, we would fetch employee details for this dept/day.
+    // For now, we check if children exist or show "no data" as requested.
+    const employees = row.children?.filter(c => c.employee_name).map(c => ({
+      name: c.employee_name,
+      type: "未知",
+      hours: c.daily[day]?.hours || 0,
+      reason: c.daily[day]?.abnormal ? "加班" : "正常",
+      cost: c.daily[day]?.cost || 0
+    })) || [];
+
     setModalData({
       date: day,
       deptName: row.name,
@@ -53,11 +91,7 @@ export default function StudentMealCostSection({ initialData, selectedDate }: { 
       regularHours: dVal.regular_hours || 0,
       overtimeCost: (dVal.overtime_hours || 0) * (dVal.overtime_hourly_rate || 33),
       fallbackCost: dVal.is_fallback_rate ? dVal.cost : 0,
-      employees: [
-        { name: "张强", type: "自有员工", hours: 8, reason: "正常", cost: 240 },
-        { name: "李华", type: "小时工", hours: 10, reason: "加班", cost: 300 },
-        { name: "王伟", type: "小时工", hours: 8, reason: "正常", cost: 176 },
-      ]
+      employees: employees.length > 0 ? employees : null
     });
     setModalOpen(true);
   };
@@ -71,10 +105,10 @@ export default function StudentMealCostSection({ initialData, selectedDate }: { 
           <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="bg-transparent border-none outline-none font-bold font-mono" />
         </div>
         
-        <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg text-xs text-slate-600">
+        <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg text-xs text-slate-400 cursor-not-allowed" title="当前数据暂不支持员工类型筛选">
           <span className="font-bold">员工类型:</span>
-          <select value={empType} onChange={e => setEmpType(e.target.value)} className="bg-transparent border-none outline-none font-bold">
-            <option value="all">全部</option>
+          <select disabled value={empType} onChange={e => setEmpType(e.target.value)} className="bg-transparent border-none outline-none font-bold cursor-not-allowed">
+            <option value="all">全部 (暂不可用)</option>
             <option value="own">自有员工</option>
             <option value="hourly">小时工</option>
             <option value="staff">职员</option>
@@ -233,30 +267,36 @@ export default function StudentMealCostSection({ initialData, selectedDate }: { 
 
               {/* Personnel Detail List */}
               <h3 className="text-xs font-bold text-slate-800 mb-2 border-l-2 border-orange-500 pl-1.5">人员成本明细 Top 10</h3>
-              <div className="border border-slate-200 rounded-lg overflow-hidden text-[11px]">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
-                    <tr>
-                      <th className="p-2 font-bold">姓名</th>
-                      <th className="p-2 font-bold">员工类型</th>
-                      <th className="p-2 font-bold">工时</th>
-                      <th className="p-2 font-bold">原因</th>
-                      <th className="p-2 font-bold text-right">成本</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {modalData.employees.map((e: any, idx: number) => (
-                      <tr key={idx} className="hover:bg-slate-50">
-                        <td className="p-2 font-bold text-slate-800">{e.name}</td>
-                        <td className="p-2 text-slate-600">{e.type}</td>
-                        <td className="p-2 font-mono text-slate-700">{e.hours}h</td>
-                        <td className="p-2 text-slate-600">{e.reason}</td>
-                        <td className="p-2 font-mono font-bold text-orange-600 text-right">¥{e.cost}</td>
+              {modalData.employees ? (
+                <div className="border border-slate-200 rounded-lg overflow-hidden text-[11px]">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
+                      <tr>
+                        <th className="p-2 font-bold">姓名</th>
+                        <th className="p-2 font-bold">员工类型</th>
+                        <th className="p-2 font-bold">工时</th>
+                        <th className="p-2 font-bold">原因</th>
+                        <th className="p-2 font-bold text-right">成本</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {modalData.employees.map((e: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-slate-50">
+                          <td className="p-2 font-bold text-slate-800">{e.name}</td>
+                          <td className="p-2 text-slate-600">{e.type}</td>
+                          <td className="p-2 font-mono text-slate-700">{e.hours}h</td>
+                          <td className="p-2 text-slate-600">{e.reason}</td>
+                          <td className="p-2 font-mono font-bold text-orange-600 text-right">¥{e.cost}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-8 text-center text-slate-400 border border-dashed border-slate-200 rounded-lg text-[11px]">
+                  暂无人员成本明细
+                </div>
+              )}
             </div>
           </div>
         </div>

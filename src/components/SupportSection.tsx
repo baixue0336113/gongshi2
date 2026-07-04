@@ -16,17 +16,52 @@ export default function SupportSection({ data }: { data: SupportHoursData }) {
   const isFoldable = mode === "foldable-inner";
   
   // Filters
-  const [startDate, setStartDate] = useState("2026-06-01");
-  const [endDate, setEndDate] = useState("2026-06-30");
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(1); // Default to start of month
+    return d.toISOString().split("T")[0];
+  });
+  const [endDate, setEndDate] = useState(() => {
+    return new Date().toISOString().split("T")[0];
+  });
   const [supportDept, setSupportDept] = useState("全部");
   const [dispatchDept, setDispatchDept] = useState("全部");
+
+  const [filterMode, setFilterMode] = useState("month");
 
   // Filter records
   const filteredRecords = data.records.filter(r => {
     if (supportDept !== "全部" && r.target_department !== supportDept) return false;
     if (dispatchDept !== "全部" && r.source_department !== dispatchDept) return false;
+    
+    // Date Filtering
+    const recordDate = new Date(r.date);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (recordDate < start || recordDate > end) return false;
+    
     return true;
   });
+
+  const handleQuickFilter = (mode: string) => {
+    setFilterMode(mode);
+    const now = new Date();
+    if (mode === "today") {
+      const today = now.toISOString().split("T")[0];
+      setStartDate(today);
+      setEndDate(today);
+    } else if (mode === "week") {
+      const start = new Date();
+      start.setDate(now.getDate() - now.getDay());
+      setStartDate(start.toISOString().split("T")[0]);
+      setEndDate(now.toISOString().split("T")[0]);
+    } else if (mode === "month") {
+      const start = new Date();
+      start.setDate(1);
+      setStartDate(start.toISOString().split("T")[0]);
+      setEndDate(now.toISOString().split("T")[0]);
+    }
+  };
 
   // Calculate KBIs
   const totalHours = filteredRecords.reduce((sum, r) => sum + r.support_hours, 0);
@@ -60,9 +95,18 @@ export default function SupportSection({ data }: { data: SupportHoursData }) {
       {/* Filters */}
       <div className={`bg-white rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center gap-3 ${isFoldable ? "p-3" : "p-4"}`}>
         <div className="flex items-center gap-1.5 border border-slate-200 p-1 rounded-lg bg-slate-50">
-          <button className="px-3 py-1 bg-white text-orange-600 font-bold text-[10px] rounded shadow-xs border border-orange-200">今日</button>
-          <button className="px-3 py-1 text-slate-500 font-bold text-[10px] rounded hover:bg-slate-200 transition-colors">本周</button>
-          <button className="px-3 py-1 text-slate-500 font-bold text-[10px] rounded hover:bg-slate-200 transition-colors">本月</button>
+          <button 
+            onClick={() => handleQuickFilter("today")}
+            className={`px-3 py-1 font-bold text-[10px] rounded transition-all ${filterMode === "today" ? "bg-white text-orange-600 shadow-xs border border-orange-200" : "text-slate-500 hover:bg-slate-200"}`}
+          >今日</button>
+          <button 
+            onClick={() => handleQuickFilter("week")}
+            className={`px-3 py-1 font-bold text-[10px] rounded transition-all ${filterMode === "week" ? "bg-white text-orange-600 shadow-xs border border-orange-200" : "text-slate-500 hover:bg-slate-200"}`}
+          >本周</button>
+          <button 
+            onClick={() => handleQuickFilter("month")}
+            className={`px-3 py-1 font-bold text-[10px] rounded transition-all ${filterMode === "month" ? "bg-white text-orange-600 shadow-xs border border-orange-200" : "text-slate-500 hover:bg-slate-200"}`}
+          >本月</button>
         </div>
         
         <div className="flex items-center gap-1.5 text-xs text-slate-600">
@@ -201,11 +245,11 @@ export default function SupportSection({ data }: { data: SupportHoursData }) {
               {filteredRecords.map((r, i) => (
                 <tr key={i} className="hover:bg-slate-50 transition-colors cursor-pointer group">
                   <td className="p-2.5 font-mono text-slate-600">{r.date}</td>
-                  <td className="p-2.5 font-bold text-slate-800">张三_{i} (100{i})</td>
+                  <td className="p-2.5 font-bold text-slate-800">-</td>
                   <td className="p-2.5 text-slate-600">{r.source_department}</td>
                   <td className="p-2.5 text-slate-300"><ArrowRight size={12}/></td>
                   <td className="p-2.5 font-bold text-orange-600">{r.target_department}</td>
-                  <td className="p-2.5 font-mono text-slate-500">08:00-12:00</td>
+                  <td className="p-2.5 font-mono text-slate-500">-</td>
                   <td className="p-2.5 font-mono font-bold text-right text-slate-800">{r.support_hours}h</td>
                   <td className="p-2.5 font-mono font-bold text-right text-rose-600">¥{r.cost_saved}</td>
                   <td className="p-2.5 text-center">

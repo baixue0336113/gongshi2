@@ -26,13 +26,28 @@ export default function TotalCostMatrixSection({ initialData, selectedDate }: { 
   const summary = initialData.summary || {};
   const totalCost = summary.total_cost || 0;
   
-  // Dummy composition for pie chart based on the total
-  const compositionData = [
-    { name: "学生餐人工成本", value: totalCost * 0.73, color: CHART_COLORS[0] },
-    { name: "方便菜肴人工成本", value: totalCost * 0.15, color: CHART_COLORS[1] },
-    { name: "校园兼职成本", value: totalCost * 0.08, color: CHART_COLORS[2] },
-    { name: "白猫清洗成本", value: totalCost * 0.04, color: CHART_COLORS[3] },
-  ];
+  // Calculate composition from rows
+  const compositionMap: Record<string, number> = {};
+  initialData.rows.forEach(row => {
+    let category = "其他成本";
+    if (row.name.includes("学生餐")) category = "学生餐人工成本";
+    else if (row.name.includes("方便菜")) category = "方便菜肴人工成本";
+    else if (row.name.includes("兼职")) category = "校园兼职成本";
+    else if (row.name.includes("白猫") || row.name.includes("清洗")) category = "白猫清洗成本";
+    else if (row.name.includes("劳务") || row.name.includes("派遣")) category = "第三方劳务成本";
+    
+    compositionMap[category] = (compositionMap[category] || 0) + (row.total_cost || 0);
+  });
+
+  const compositionData = Object.entries(compositionMap)
+    .map(([name, value], i) => ({
+      name,
+      value,
+      color: CHART_COLORS[i % CHART_COLORS.length]
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  const hasComposition = compositionData.length > 0;
 
   // Daily Trend 
   const trendData = initialData.days.map(day => {
@@ -99,32 +114,38 @@ export default function TotalCostMatrixSection({ initialData, selectedDate }: { 
           <h3 className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
             <PieChartIcon size={14} className="text-orange-500" /> 成本构成占比
           </h3>
-          <div className="flex-1 min-h-[140px] mt-2 relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={compositionData} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={2} dataKey="value">
-                  {compositionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(val: number) => `¥${Math.round(val).toLocaleString()}`} contentStyle={{ fontSize: 10, borderRadius: 8 }} />
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="flex-1 min-h-[140px] mt-2 relative flex items-center justify-center">
+            {hasComposition ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={compositionData} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={2} dataKey="value">
+                    {compositionData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(val: number) => `¥${Math.round(val).toLocaleString()}`} contentStyle={{ fontSize: 10, borderRadius: 8 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-[10px] text-slate-400">暂无成本构成明细</div>
+            )}
           </div>
-          <div className="space-y-1.5 mt-2">
-            {compositionData.map((d, i) => (
-              <div key={i} className="flex justify-between items-center text-[9px] font-bold">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }}></div>
-                  <span className="text-slate-600">{d.name}</span>
+          {hasComposition && (
+            <div className="space-y-1.5 mt-2">
+              {compositionData.map((d, i) => (
+                <div key={i} className="flex justify-between items-center text-[9px] font-bold">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }}></div>
+                    <span className="text-slate-600">{d.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-400">{((d.value / (totalCost || 1)) * 100).toFixed(1)}%</span>
+                    <span className="font-mono text-slate-800">¥{Math.round(d.value).toLocaleString()}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-400">{((d.value / totalCost) * 100).toFixed(1)}%</span>
-                  <span className="font-mono text-slate-800">¥{Math.round(d.value).toLocaleString()}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
