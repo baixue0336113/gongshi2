@@ -144,7 +144,9 @@ export default function StrategicTrackingSection({ data }: any) {
                     </span>
                   </td>
                   <td className="px-4 py-3 font-mono text-slate-400">-</td>
-                  <td className="px-4 py-3 text-right font-bold text-slate-600">主管/HR</td>
+                  <td className="px-4 py-3 text-right font-bold text-slate-600">
+                    {row.owner || row.manager || row.handler || row.follow_user || "-"}
+                  </td>
                 </tr>
               )) : (
                 <tr>
