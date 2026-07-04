@@ -138,9 +138,7 @@ export default function DashboardLayout({
         {/* Drawer Header */}
         <div className="flex items-center justify-between px-4 h-16 border-b border-slate-800 shrink-0 bg-slate-950/20">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center font-bold text-slate-950 shrink-0 shadow-md">
-              鲜
-            </div>
+            <img src="/logo.png" alt="鲜誉运营" className="w-8 h-8 object-contain shrink-0" />
             <div className="flex flex-col">
               <span className="text-sm font-bold tracking-tight text-slate-100">鲜誉运营驾驶舱</span>
               <span className="text-[9px] font-mono tracking-widest text-orange-400">EXECUTIVE COCKPIT</span>
@@ -235,9 +233,7 @@ export default function DashboardLayout({
           } ${isSidebarCollapsed ? "cursor-pointer hover:bg-slate-800/40 transition-colors" : ""}`}
         >
           <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center font-bold text-slate-950 shrink-0 shadow-md">
-              鲜
-            </div>
+            <img src="/logo.png" alt="鲜誉运营" className="w-8 h-8 object-contain shrink-0" />
             {!isSidebarCollapsed && (
               <div className="flex flex-col">
                 <span className="text-sm font-bold tracking-tight text-slate-100 whitespace-nowrap">鲜誉运营驾驶舱</span>
