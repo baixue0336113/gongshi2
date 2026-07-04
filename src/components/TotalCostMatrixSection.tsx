@@ -69,7 +69,7 @@ export default function TotalCostMatrixSection({ initialData, selectedDate }: { 
         {[
           { label: "核算周期", value: selectedMonth, icon: Calendar, color: "bg-orange-50 text-orange-600 border-orange-200" },
           { label: "核定总成本", value: `¥${Math.round(totalCost).toLocaleString()}`, icon: DollarSign, color: "bg-teal-50 text-teal-600 border-teal-200" },
-          { label: "成本构成", value: `4 大类`, icon: Layers, color: "bg-indigo-50 text-indigo-600 border-indigo-200" },
+          { label: "成本构成", value: `${compositionData.length} 大类`, icon: Layers, color: "bg-indigo-50 text-indigo-600 border-indigo-200" },
           { label: "当前月份", value: selectedMonth.split("-")[1] + "月", icon: Filter, color: "bg-blue-50 text-blue-600 border-blue-200" },
         ].map((c, i) => (
           <div key={i} className={`bg-white border border-slate-200/80 rounded-xl p-4 flex items-center justify-between shadow-xs`}>

@@ -90,6 +90,18 @@ export default function SupportSection({ data }: { data: SupportHoursData }) {
     .sort((a, b) => b[1] - a[1])
     .map(([name, hours]) => ({ name, value: hours }));
 
+  // 3. Daily Trend from Filtered Records
+  const trendMap: Record<string, number> = {};
+  filteredRecords.forEach(r => {
+    trendMap[r.date] = (trendMap[r.date] || 0) + r.support_hours;
+  });
+  const trendData = Object.entries(trendMap)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, hours]) => ({
+      date: date.substring(5), // MM-DD
+      hours
+    }));
+
   return (
     <div className={isFoldable ? "space-y-3" : "space-y-4"}>
       {/* Filters */}
@@ -185,7 +197,7 @@ export default function SupportSection({ data }: { data: SupportHoursData }) {
           </h3>
           <div className="h-[180px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data.trend} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+              <AreaChart data={trendData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
                 <defs>
                   <linearGradient id="supportColor" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
@@ -253,7 +265,11 @@ export default function SupportSection({ data }: { data: SupportHoursData }) {
                   <td className="p-2.5 font-mono font-bold text-right text-slate-800">{r.support_hours}h</td>
                   <td className="p-2.5 font-mono font-bold text-right text-rose-600">¥{r.cost_saved}</td>
                   <td className="p-2.5 text-center">
-                    <span className="bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold border border-emerald-100">已核准</span>
+                    {(r as any).status ? (
+                      <span className="bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold border border-emerald-100">{(r as any).status}</span>
+                    ) : (
+                      <span className="text-slate-300">-</span>
+                    )}
                   </td>
                 </tr>
               ))}

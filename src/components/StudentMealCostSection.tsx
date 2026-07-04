@@ -37,9 +37,19 @@ export default function StudentMealCostSection({ initialData, selectedDate }: { 
       
       // Cost Type Filtering
       if (costType === "normal") {
-        cost = (d.regular_hours || (d.hours || 0)) * (d.hourly_rate || 28);
+        const rate = d.hourly_rate;
+        if (!rate || !d.regular_hours) {
+          cost = 0;
+        } else {
+          cost = d.regular_hours * rate;
+        }
       } else if (costType === "overtime") {
-        cost = (d.overtime_hours || 0) * (d.overtime_hourly_rate || 33);
+        const rate = d.overtime_hourly_rate;
+        if (!rate || !d.overtime_hours) {
+          cost = 0;
+        } else {
+          cost = d.overtime_hours * rate;
+        }
       } else if (costType === "fallback") {
         cost = d.is_fallback_rate ? (d.cost || 0) : 0;
       }
@@ -89,7 +99,7 @@ export default function StudentMealCostSection({ initialData, selectedDate }: { 
       totalHours: dVal.hours || 0,
       unitCost: (dVal.cost / (dVal.hours || 1)).toFixed(1),
       regularHours: dVal.regular_hours || 0,
-      overtimeCost: (dVal.overtime_hours || 0) * (dVal.overtime_hourly_rate || 33),
+      overtimeCost: (dVal.overtime_hours || 0) * (dVal.overtime_hourly_rate || 0),
       fallbackCost: dVal.is_fallback_rate ? dVal.cost : 0,
       employees: employees.length > 0 ? employees : null
     });
@@ -191,7 +201,7 @@ export default function StudentMealCostSection({ initialData, selectedDate }: { 
               </tr>
             </thead>
             <tbody className="text-[10px]">
-              {initialData.rows.map((row, i) => (
+              {filteredRows.map((row, i) => (
                 <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">
                   <td className="sticky left-0 bg-white font-bold text-slate-700 px-3 py-2 border-r border-slate-200 z-10 truncate" title={row.name}>
                     {row.name}
@@ -202,7 +212,7 @@ export default function StudentMealCostSection({ initialData, selectedDate }: { 
                       <td 
                         key={day} 
                         className={`text-center py-1.5 border-r border-slate-200/50 font-mono text-slate-600 ${c > 0 ? "cursor-pointer hover:bg-orange-50" : ""}`}
-                        onClick={() => onCellClick(row, day)}
+                        onClick={() => c > 0 ? onCellClick(row, day) : null}
                       >
                         {c > 0 ? `¥${Math.round(c).toLocaleString()}` : <span className="text-slate-300">-</span>}
                       </td>
