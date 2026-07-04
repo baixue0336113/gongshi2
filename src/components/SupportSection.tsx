@@ -1,252 +1,220 @@
 import React, { useState } from "react";
 import { SupportHoursData, SupportRecord } from "../types";
 import { useDevice } from "../context/DeviceContext";
-import { Clock, Users, Shield, ArrowRight, Filter, BarChart, Activity, DollarSign } from "lucide-react";
-import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, LineChart, Line } from "recharts";
+import { 
+  Users, Clock, Building2, TrendingUp, Search, Calendar, Filter, FileSpreadsheet, ArrowRight
+} from "lucide-react";
+import { 
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
+  AreaChart, Area, PieChart, Pie, Legend
+} from "recharts";
 
-interface SupportSectionProps {
-  data: SupportHoursData;
-}
+const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'];
 
-export default function SupportSection({ data }: SupportSectionProps) {
+export default function SupportSection({ data }: { data: SupportHoursData }) {
   const { mode } = useDevice();
   const isFoldable = mode === "foldable-inner";
-
-  const [sourceFilter, setSourceFilter] = useState("all");
-  const [targetFilter, setTargetFilter] = useState("all");
-  const [selectedRecord, setSelectedRecord] = useState<SupportRecord | null>(null);
-
-  if (!data) return <div className="text-slate-500 p-6 text-xs font-semibold">暂无支援工时数据</div>;
-
-  const { range, records = [], filters = { supportDepartments: [], outgoingDepartments: [] }, ranking = [], trend = [] } = data;
+  
+  // Filters
+  const [startDate, setStartDate] = useState("2026-06-01");
+  const [endDate, setEndDate] = useState("2026-06-30");
+  const [supportDept, setSupportDept] = useState("全部");
+  const [dispatchDept, setDispatchDept] = useState("全部");
 
   // Filter records
-  const filteredRecords = records.filter(rec => {
-    const matchesSource = sourceFilter === "all" || rec.source_department === sourceFilter;
-    const matchesTarget = targetFilter === "all" || rec.target_department === targetFilter;
-    return matchesSource && matchesTarget;
+  const filteredRecords = data.records.filter(r => {
+    if (supportDept !== "全部" && r.target_department !== supportDept) return false;
+    if (dispatchDept !== "全部" && r.source_department !== dispatchDept) return false;
+    return true;
   });
 
+  // Calculate KBIs
   const totalHours = filteredRecords.reduce((sum, r) => sum + r.support_hours, 0);
-  const totalCostSaved = filteredRecords.reduce((sum, r) => sum + r.cost_saved, 0);
+  const totalCost = filteredRecords.reduce((sum, r) => sum + r.cost_saved, 0);
+  const totalPeople = filteredRecords.reduce((sum, r) => sum + r.people_count, 0);
+  const targetDepts = new Set(filteredRecords.map(r => r.target_department)).size;
+  const avgHours = totalPeople > 0 ? (totalHours / totalPeople).toFixed(1) : 0;
+
+  // Chart Data Preparation
+  // 1. Top 10 Supported (Target) Depts
+  const targetDeptMap: Record<string, number> = {};
+  filteredRecords.forEach(r => {
+    targetDeptMap[r.target_department] = (targetDeptMap[r.target_department] || 0) + r.support_hours;
+  });
+  const topTargetDepts = Object.entries(targetDeptMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([name, hours]) => ({ name, hours }));
+
+  // 2. Dispatch Depts Pie
+  const dispatchDeptMap: Record<string, number> = {};
+  filteredRecords.forEach(r => {
+    dispatchDeptMap[r.source_department] = (dispatchDeptMap[r.source_department] || 0) + r.support_hours;
+  });
+  const dispatchDepts = Object.entries(dispatchDeptMap)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, hours]) => ({ name, value: hours }));
 
   return (
     <div className={isFoldable ? "space-y-3" : "space-y-4"}>
-      {/* Date Range & Filter header */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-        <div>
-          <span className="text-[10px] text-slate-400 font-bold block uppercase">核对口径日期范围:</span>
-          <h3 className="text-xs font-bold text-slate-800 font-mono mt-0.5">{range}</h3>
+      {/* Filters */}
+      <div className={`bg-white rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center gap-3 ${isFoldable ? "p-3" : "p-4"}`}>
+        <div className="flex items-center gap-1.5 border border-slate-200 p-1 rounded-lg bg-slate-50">
+          <button className="px-3 py-1 bg-white text-orange-600 font-bold text-[10px] rounded shadow-xs border border-orange-200">今日</button>
+          <button className="px-3 py-1 text-slate-500 font-bold text-[10px] rounded hover:bg-slate-200 transition-colors">本周</button>
+          <button className="px-3 py-1 text-slate-500 font-bold text-[10px] rounded hover:bg-slate-200 transition-colors">本月</button>
+        </div>
+        
+        <div className="flex items-center gap-1.5 text-xs text-slate-600">
+          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-slate-50 border border-slate-200 px-2 py-1.5 rounded-lg outline-none font-mono" />
+          <span>至</span>
+          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-slate-50 border border-slate-200 px-2 py-1.5 rounded-lg outline-none font-mono" />
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs text-slate-600">
-            <Filter size={12} className="text-orange-500" />
-            <span className="text-[11px] font-medium">派出部门:</span>
-            <select 
-              value={sourceFilter}
-              onChange={(e) => setSourceFilter(e.target.value)}
-              className="bg-slate-50 border border-slate-200 text-slate-700 rounded-lg px-2 py-1 text-xs outline-none focus:border-orange-500"
-            >
-              <option value="all">全部</option>
-              {filters.supportDepartments?.map(d => (
-                <option key={d} value={d}>{d}</option>
-              ))}
+        <div className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg">
+            <span className="text-slate-500 font-bold">派出部门:</span>
+            <select value={dispatchDept} onChange={e => setDispatchDept(e.target.value)} className="bg-transparent border-none outline-none font-bold text-slate-800">
+              <option value="全部">全部</option>
+              {data.filters.outgoingDepartments.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
-
-          <div className="flex items-center gap-1.5 text-xs text-slate-600">
-            <Filter size={12} className="text-orange-500" />
-            <span className="text-[11px] font-medium">受援部门:</span>
-            <select 
-              value={targetFilter}
-              onChange={(e) => setTargetFilter(e.target.value)}
-              className="bg-slate-50 border border-slate-200 text-slate-700 rounded-lg px-2 py-1 text-xs outline-none focus:border-orange-500"
-            >
-              <option value="all">全部</option>
-              {filters.outgoingDepartments?.map(d => (
-                <option key={d} value={d}>{d}</option>
-              ))}
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg">
+            <span className="text-slate-500 font-bold">支援部门:</span>
+            <select value={supportDept} onChange={e => setSupportDept(e.target.value)} className="bg-transparent border-none outline-none font-bold text-slate-800">
+              <option value="全部">全部</option>
+              {data.filters.supportDepartments.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
+          <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1.5 rounded-lg font-bold shadow-sm transition-all flex items-center gap-1.5">
+            <Search size={14} /> 查询
+          </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between shadow-xs">
-          <div>
-            <span className="text-[10px] text-slate-400 font-bold block uppercase">过滤累计支援工时</span>
-            <h2 className="text-base font-bold font-mono text-orange-600 mt-0.5">{totalHours} h</h2>
-            <p className="text-[9px] text-slate-500">跨工段合理调配总时长</p>
-          </div>
-          <Clock className="text-orange-500/20" size={28} />
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between shadow-xs">
-          <div>
-            <span className="text-[10px] text-slate-400 font-bold block uppercase">结转人工成本</span>
-            <h2 className="text-base font-bold font-mono text-emerald-600 mt-0.5">¥{totalCostSaved.toLocaleString()}</h2>
-            <p className="text-[9px] text-slate-500">跨工段调配对应成本</p>
-          </div>
-          <DollarSign className="text-emerald-500/20" size={28} />
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between shadow-xs">
-          <div>
-            <span className="text-[10px] text-slate-400 font-bold block uppercase">出勤支援人次</span>
-            <h2 className="text-base font-bold font-mono text-blue-600 mt-0.5">
-              {filteredRecords.reduce((sum, r) => sum + r.people_count, 0)} 人天
-            </h2>
-            <p className="text-[9px] text-slate-500">完成双向调配登记总人次</p>
-          </div>
-          <Users className="text-blue-500/20" size={28} />
-        </div>
-      </div>
-
-      {/* Charts section */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Support hours trend (Left 7 cols) */}
-        <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-1.5">
-              <Activity size={14} className="text-orange-500" />
-              <h3 className="text-xs font-bold text-slate-800">每日支援工时流动轨迹</h3>
+      {/* KBIs */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {[
+          { label: "总支援工时", value: `${totalHours} h`, icon: Clock, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
+          { label: "支援总成本", value: `¥${totalCost}`, icon: TrendingUp, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100" },
+          { label: "支援总人次", value: `${totalPeople} 人次`, icon: Users, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-100" },
+          { label: "涉及支援部门", value: `${targetDepts} 个`, icon: Building2, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
+          { label: "人均支援工时", value: `${avgHours} h/人`, icon: FileSpreadsheet, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-100" },
+        ].map((kbi, i) => (
+          <div key={i} className={`bg-white border ${kbi.border} rounded-xl p-3 sm:p-4 shadow-xs flex items-center justify-between`}>
+            <div>
+              <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">{kbi.label}</div>
+              <div className="text-sm sm:text-lg font-bold text-slate-800 font-mono">{kbi.value}</div>
+            </div>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${kbi.bg} ${kbi.color}`}>
+              <kbi.icon size={16} />
             </div>
           </div>
-          <div className="h-44">
+        ))}
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Top 10 Supported */}
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs lg:col-span-1">
+          <h3 className="text-[11px] font-bold text-slate-800 mb-4 flex items-center gap-1.5">
+            <Building2 size={14} className="text-orange-500" /> 被支援部门排行 TOP10
+          </h3>
+          <div className="h-[180px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trend} margin={{ left: -25, right: 10, top: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="date" stroke="#94a3b8" fontSize={9} />
-                <YAxis stroke="#94a3b8" fontSize={9} />
-                <Tooltip contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e2e8f0" }} />
-                <Line type="monotone" dataKey="hours" name="支援工时" stroke="#f97316" strokeWidth={2} dot={{ fill: "#f97316", r: 3 }} />
-              </LineChart>
+              <BarChart data={topTargetDepts} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
+                <XAxis type="number" hide />
+                <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+                <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ fontSize: 10, borderRadius: 8 }} />
+                <Bar dataKey="hours" radius={[0, 4, 4, 0]} barSize={12}>
+                  {topTargetDepts.map((_, i) => <Cell key={`cell-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                </Bar>
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Support rank chart (Right 5 cols) */}
-        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-1.5">
-              <BarChart size={14} className="text-orange-500" />
-              <h3 className="text-xs font-bold text-slate-800">受援部门接收工时权重</h3>
-            </div>
-          </div>
-          <div className="h-44">
+        {/* Trend */}
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs lg:col-span-1">
+          <h3 className="text-[11px] font-bold text-slate-800 mb-4 flex items-center gap-1.5">
+            <TrendingUp size={14} className="text-orange-500" /> 每日支援趋势
+          </h3>
+          <div className="h-[180px]">
             <ResponsiveContainer width="100%" height="100%">
-              <RechartsBarChart data={ranking} layout="vertical" margin={{ left: -10, right: 10, top: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-                <XAxis type="number" stroke="#94a3b8" fontSize={9} />
-                <YAxis type="category" dataKey="department_name" stroke="#94a3b8" fontSize={9} width={70} />
-                <Tooltip contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #e2e8f0" }} />
-                <Bar dataKey="hours" name="累计工时" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={10} />
-              </RechartsBarChart>
+              <AreaChart data={data.trend} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="supportColor" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" tick={{ fontSize: 9 }} stroke="#94a3b8" />
+                <YAxis tick={{ fontSize: 9 }} stroke="#94a3b8" />
+                <Tooltip contentStyle={{ fontSize: 10, borderRadius: 8 }} />
+                <Area type="monotone" dataKey="hours" name="支援工时" stroke="#3b82f6" fill="url(#supportColor)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Dispatch Pie */}
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs lg:col-span-1">
+          <h3 className="text-[11px] font-bold text-slate-800 mb-1 flex items-center gap-1.5">
+            <Users size={14} className="text-orange-500" /> 派出部门占比
+          </h3>
+          <div className="h-[180px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={dispatchDepts} cx="50%" cy="50%" innerRadius={45} outerRadius={65} paddingAngle={2} dataKey="value">
+                  {dispatchDepts.map((_, index) => <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
+                </Pie>
+                <Tooltip contentStyle={{ fontSize: 10, borderRadius: 8 }} />
+                <Legend wrapperStyle={{ fontSize: 9 }} layout="vertical" verticalAlign="middle" align="right" />
+              </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      {/* Details list and table view */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
-        {/* Support Records Table */}
-        <div className="xl:col-span-2 bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
-          <h4 className="text-xs font-bold text-slate-800 mb-3">确认支援调配记录明细</h4>
-          
-          <div className="overflow-x-auto matrix-scroll">
-            <table className="w-full text-xs text-left">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-400 text-[10px] uppercase font-bold">
-                  <th className="py-2 px-1">日期</th>
-                  <th className="py-2 px-1">派出部门 (支援源)</th>
-                  <th className="py-2 px-1"></th>
-                  <th className="py-2 px-1">受援部门 (受支援)</th>
-                  <th className="py-2 px-1 text-right">工时</th>
-                  <th className="py-2 px-1 text-right">人数</th>
+      {/* Detail Table */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden flex flex-col min-h-0">
+        <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+          <h3 className="text-[11px] font-bold text-slate-800">支援明细台账</h3>
+          <button className="text-[10px] text-blue-600 font-bold hover:underline">导出 Excel</button>
+        </div>
+        <div className="overflow-x-auto p-1 custom-scrollbar">
+          <table className="w-full text-left border-collapse text-[10px]">
+            <thead>
+              <tr className="bg-slate-100/50 text-slate-500 font-bold border-b border-slate-200">
+                <th className="p-2.5">支援日期</th>
+                <th className="p-2.5">员工信息</th>
+                <th className="p-2.5">派出部门</th>
+                <th className="p-2.5"></th>
+                <th className="p-2.5">支援部门</th>
+                <th className="p-2.5">时段</th>
+                <th className="p-2.5 text-right">支援工时</th>
+                <th className="p-2.5 text-right">折算成本</th>
+                <th className="p-2.5 text-center">状态</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredRecords.map((r, i) => (
+                <tr key={i} className="hover:bg-slate-50 transition-colors cursor-pointer group">
+                  <td className="p-2.5 font-mono text-slate-600">{r.date}</td>
+                  <td className="p-2.5 font-bold text-slate-800">张三_{i} (100{i})</td>
+                  <td className="p-2.5 text-slate-600">{r.source_department}</td>
+                  <td className="p-2.5 text-slate-300"><ArrowRight size={12}/></td>
+                  <td className="p-2.5 font-bold text-orange-600">{r.target_department}</td>
+                  <td className="p-2.5 font-mono text-slate-500">08:00-12:00</td>
+                  <td className="p-2.5 font-mono font-bold text-right text-slate-800">{r.support_hours}h</td>
+                  <td className="p-2.5 font-mono font-bold text-right text-rose-600">¥{r.cost_saved}</td>
+                  <td className="p-2.5 text-center">
+                    <span className="bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold border border-emerald-100">已核准</span>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
-                {filteredRecords.map((rec) => (
-                  <tr 
-                    key={rec.id} 
-                    onClick={() => setSelectedRecord(rec)}
-                    className={`hover:bg-slate-50 cursor-pointer transition-colors ${selectedRecord?.id === rec.id ? "bg-orange-50/50" : ""}`}
-                  >
-                    <td className="py-2.5 px-1 font-mono text-slate-500">{rec.date}</td>
-                    <td className="py-2.5 px-1 font-bold text-slate-700">{rec.source_department}</td>
-                    <td className="py-2.5 px-0 text-orange-500"><ArrowRight size={11} /></td>
-                    <td className="py-2.5 px-1 font-bold text-slate-700">{rec.target_department}</td>
-                    <td className="py-2.5 px-1 text-right text-orange-600 font-mono font-bold">{rec.support_hours}h</td>
-                    <td className="py-2.5 px-1 text-right text-slate-500 font-mono">{rec.people_count}</td>
-                  </tr>
-                ))}
-                {filteredRecords.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="py-6 text-center text-slate-400">
-                      无对应筛选条件的支援工时记录
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Selected detail panel */}
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
-          <h4 className="text-xs font-bold text-slate-800 mb-3">支援调配详情</h4>
-          {selectedRecord ? (
-            <div className="space-y-3">
-              <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100 text-[10px]">
-                <div>
-                  <span className="text-slate-400">流水编号</span>
-                  <p className="font-mono font-bold text-slate-600">{selectedRecord.id}</p>
-                </div>
-                <div className="text-right">
-                  <span className="text-slate-400">登记日期</span>
-                  <p className="font-mono font-bold text-slate-600">{selectedRecord.date}</p>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="text-[10px] font-bold text-slate-400 uppercase">调配流向:</div>
-                <div className="p-2.5 bg-slate-50/50 rounded-lg flex items-center justify-between border border-slate-100">
-                  <div className="text-center flex-1">
-                    <span className="text-[9px] text-slate-400 block">派出源部门</span>
-                    <span className="font-bold text-slate-700 text-[11px] mt-0.5 block">{selectedRecord.source_department}</span>
-                  </div>
-                  <ArrowRight size={12} className="text-orange-500 mx-2 shrink-0" />
-                  <div className="text-center flex-1">
-                    <span className="text-[9px] text-slate-400 block">接收受援部门</span>
-                    <span className="font-bold text-slate-700 text-[11px] mt-0.5 block">{selectedRecord.target_department}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-center">
-                  <span className="text-[9px] text-slate-400 block">调配工时</span>
-                  <span className="text-sm font-mono font-bold text-orange-600 block mt-0.5">{selectedRecord.support_hours} h</span>
-                </div>
-                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-center">
-                  <span className="text-[9px] text-slate-400 block">调配人数</span>
-                  <span className="text-sm font-mono font-bold text-blue-600 block mt-0.5">{selectedRecord.people_count} 人</span>
-                </div>
-              </div>
-
-              <div className="p-2.5 bg-slate-50 border border-slate-100 rounded-lg">
-                <p className="text-[9px] text-slate-500 mt-1 leading-normal text-center">
-                  该支援调配折算结转人工成本为 <strong>¥{selectedRecord.cost_saved}</strong> 元。
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="py-10 text-center text-slate-400 text-[11px]">
-              请点击左侧列表的任意一行，查看该笔跨工段支援工时的详情说明
-            </div>
-          )}
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

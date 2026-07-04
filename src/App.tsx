@@ -4,6 +4,9 @@ import LoginPage from "./components/LoginPage";
 import DashboardLayout, { ActiveTab } from "./components/DashboardLayout";
 import OverviewSection from "./components/OverviewSection";
 import MatrixSection from "./components/MatrixSection";
+import TotalCostMatrixSection from "./components/TotalCostMatrixSection";
+import StudentMealCostSection from "./components/StudentMealCostSection";
+
 import DepartmentSection from "./components/DepartmentSection";
 import EmployeeSection from "./components/EmployeeSection";
 import SupportSection from "./components/SupportSection";
@@ -157,16 +160,14 @@ export default function App() {
           )}
 
           {activeTab === "student_meal_cost" && (
-            <MatrixSection
-              scope="student_meal_cost"
+            <StudentMealCostSection
               initialData={dashboardData.cost_matrix}
               selectedDate={selectedDate}
             />
           )}
 
           {activeTab === "total_cost_matrix" && (
-            <MatrixSection
-              scope="total_cost_matrix"
+            <TotalCostMatrixSection
               initialData={dashboardData.total_cost_matrix}
               selectedDate={selectedDate}
             />

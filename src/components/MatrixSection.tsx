@@ -78,6 +78,44 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
   const [deptOptions, setDeptOptions] = useState<string[]>(["全部部门"]);
   const [loading, setLoading] = useState(false);
 
+  // For Student Meal Cost specifically
+  const [studentMealEmployeeType, setStudentMealEmployeeType] = useState("all"); // all | own | hourly | staff
+  const [studentMealCostType, setStudentMealCostType] = useState("all"); // all | normal | overtime | fallback
+
+  let firstColumnTitle = "组织 / 车间班组";
+  let trendTitle = "每日工时趋势";
+  let pieTitle = "组织/班组结构占比统计";
+  
+  if (scope === "work_matrix") {
+    firstColumnTitle = "实际工作部门";
+    trendTitle = "每日核定工时趋势";
+    pieTitle = "部门工时占比";
+  } else if (scope === "student_meal_cost") {
+    firstColumnTitle = "实际工作部门";
+    trendTitle = "每日学生餐人工成本趋势";
+    pieTitle = "部门人工成本占比";
+  } else if (scope === "total_cost_matrix") {
+    firstColumnTitle = "成本分类 / 实际工作部门";
+    trendTitle = "每日总成本趋势";
+    pieTitle = "成本构成占比";
+  } else if (scope === "baimao") {
+    firstColumnTitle = "分类 / 计费项目";
+    trendTitle = "每日白猫清洗成本趋势";
+    pieTitle = "清洗项目成本占比";
+  } else if (scope === "campus") {
+    firstColumnTitle = "学校 / 客服";
+    trendTitle = "每日校园兼职成本趋势";
+    pieTitle = "学校 / 客服成本占比";
+  } else if (scope === "convenience") {
+    firstColumnTitle = "实际工作部门";
+    trendTitle = "每日方便菜肴工时成本趋势";
+    pieTitle = "方便菜肴部门成本占比";
+  } else if (scope === "third_party") {
+    firstColumnTitle = "劳务公司 / 实际工作部门";
+    trendTitle = "每日第三方派遣工时成本趋势";
+    pieTitle = "劳务公司 / 部门成本占比";
+  }
+
   // Synchronize and render Monthly content
   useEffect(() => {
     // Default view modes for different scopes
@@ -560,7 +598,7 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
       cards = [
         { label: "矩阵周期", value: selectedMonth, color: "bg-orange-50 text-orange-600 border-orange-200", icon: Calendar },
         { label: "计费项目", value: `${activeCount} 个`, color: "bg-blue-50 text-blue-600 border-blue-200", icon: Filter },
-        { label: "累计数量", value: `${Math.round(totalQty).toLocaleString()} 箱`, color: "bg-teal-50 text-teal-600 border-teal-200", icon: Layers },
+        { label: "累计数量", value: `${Math.round(totalQty).toLocaleString()} 件`, color: "bg-teal-50 text-teal-600 border-teal-200", icon: Layers },
         { label: "清洗成本", value: `¥${Math.round(totalCost).toLocaleString()}`, color: "bg-indigo-50 text-indigo-600 border-indigo-200", icon: DollarSign }
       ];
     } else if (scope === "campus") {
@@ -653,30 +691,65 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
           </div>
 
           {/* Keyword Query Search */}
-          <div className="relative">
-            <Search size={13} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="搜索班组或人员姓名..."
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-lg text-xs text-slate-700 outline-none transition-all w-44"
-            />
-          </div>
+          {scope !== "student_meal_cost" && (
+            <div className="relative">
+              <Search size={13} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="搜索班组或人员姓名..."
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-lg text-xs text-slate-700 outline-none transition-all w-44"
+              />
+            </div>
+          )}
 
           {/* Department Selection Filter */}
-          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg text-xs text-slate-600">
-            <Filter size={11} className="text-slate-400" />
-            <select
-              value={selectedDept}
-              onChange={(e) => setSelectedDept(e.target.value)}
-              className="bg-transparent border-none font-medium text-slate-700 outline-none cursor-pointer pr-1 text-xs"
-            >
-              {deptOptions.map(dept => (
-                <option key={dept} value={dept}>{dept}</option>
-              ))}
-            </select>
-          </div>
+          {scope !== "student_meal_cost" && (
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg text-xs text-slate-600">
+              <Filter size={11} className="text-slate-400" />
+              <select
+                value={selectedDept}
+                onChange={(e) => setSelectedDept(e.target.value)}
+                className="bg-transparent border-none font-medium text-slate-700 outline-none cursor-pointer pr-1 text-xs"
+              >
+                {deptOptions.map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {scope === "student_meal_cost" && (
+            <>
+              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg text-xs text-slate-600">
+                <span className="font-bold">员工类型:</span>
+                <select
+                  value={studentMealEmployeeType}
+                  onChange={(e) => setStudentMealEmployeeType(e.target.value)}
+                  className="bg-transparent border-none font-medium text-slate-700 outline-none cursor-pointer pr-1 text-xs"
+                >
+                  <option value="all">全部</option>
+                  <option value="own">自有员工</option>
+                  <option value="hourly">小时工</option>
+                  <option value="staff">职员</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg text-xs text-slate-600">
+                <span className="font-bold">成本类型:</span>
+                <select
+                  value={studentMealCostType}
+                  onChange={(e) => setStudentMealCostType(e.target.value)}
+                  className="bg-transparent border-none font-medium text-slate-700 outline-none cursor-pointer pr-1 text-xs"
+                >
+                  <option value="all">全部人工成本</option>
+                  <option value="normal">正常工时成本</option>
+                  <option value="overtime">加班/周末成本</option>
+                  <option value="fallback">兜底小时工成本</option>
+                </select>
+              </div>
+            </>
+          )}
 
           {/* Scope-dependent view toggle */}
           {["baimao", "campus", "convenience", "third_party"].includes(scope) && (
@@ -813,7 +886,7 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
           <div className={`${isFoldable ? "" : "lg:col-span-8"} bg-white rounded-xl border border-slate-200 p-4 shadow-xs`}>
             <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5 mb-2.5">
               <TrendingUp size={14} className="text-orange-500" />
-              {selectedMonth} 每日趋势波动分析 ({viewMode === "hours" ? "核定工时" : viewMode === "cost" ? "归集成本" : viewMode === "qty" ? "折算箱数" : "出勤人数"})
+              {selectedMonth} {trendTitle}
             </span>
             <div style={{ height: isFoldable ? 150 : 210, width: "100%" }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -839,7 +912,7 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
                       <Area name="总工时" type="monotone" dataKey="total" stroke="#f97316" fill="url(#colorTotal)" strokeWidth={2} />
                     </>
                   ) : (
-                    <Area name={viewMode === "cost" ? "归集成本" : viewMode === "qty" ? "箱量" : "在岗人数"} type="monotone" dataKey="total" stroke="#3b82f6" fillOpacity={0.05} strokeWidth={2} />
+                    <Area name={viewMode === "cost" ? "归集成本" : viewMode === "qty" ? "数量" : "在岗人数"} type="monotone" dataKey="total" stroke="#3b82f6" fillOpacity={0.05} strokeWidth={2} />
                   )}
                 </AreaChart>
               </ResponsiveContainer>
@@ -850,7 +923,7 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
           <div className={`${isFoldable ? "" : "lg:col-span-4"} bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between`}>
             <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
               <LucidePieIcon size={14} className="text-orange-500" />
-              组织/班组结构占比统计
+              {pieTitle}
             </span>
             <div className="flex-1 flex items-center justify-center relative my-1" style={{ height: isFoldable ? 140 : 160 }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -919,7 +992,7 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[9px] font-bold uppercase">
                   {/* Narrowed Roster first column */}
                   <th className="sticky left-0 bg-slate-50 w-[110px] text-left px-3 py-3 border-r border-slate-200 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
-                    组织 / 车间班组
+                    {firstColumnTitle}
                   </th>
                   {dynamicMatrix.days.map((day) => {
                     const dateObj = new Date(day);
