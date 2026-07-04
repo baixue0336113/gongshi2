@@ -80,7 +80,7 @@ export default function StudentMealCostSection({ initialData, selectedDate }: { 
 
   const onCellClick = (row: MatrixRow, day: string) => {
     const dVal = row.daily[day] || {};
-    if (!dVal.cost) return;
+    if (!dVal.cost && !dVal.hours) return;
     
     // In a real app, we would fetch employee details for this dept/day.
     // For now, we check if children exist or show "no data" as requested.
@@ -95,8 +95,9 @@ export default function StudentMealCostSection({ initialData, selectedDate }: { 
     setModalData({
       date: day,
       deptName: row.name,
-      totalCost: dVal.cost,
+      totalCost: dVal.cost || 0,
       totalHours: dVal.hours || 0,
+      totalPeople: dVal.people || 0,
       unitCost: (dVal.cost / (dVal.hours || 1)).toFixed(1),
       regularHours: dVal.regular_hours || 0,
       overtimeCost: (dVal.overtime_hours || 0) * (dVal.overtime_hourly_rate || 0),
@@ -104,6 +105,20 @@ export default function StudentMealCostSection({ initialData, selectedDate }: { 
       employees: employees.length > 0 ? employees : null
     });
     setModalOpen(true);
+  };
+
+  // Determine cell color based on values (heatmap style)
+  const getCellBg = (val: number, isFallback?: boolean) => {
+    if (isFallback) {
+      return "bg-amber-50 text-amber-900 border border-amber-300/60";
+    }
+    if (!val || val === 0) return "bg-slate-50 text-slate-300";
+    
+    // Cost intensity
+    if (val < 150) return "bg-blue-50 text-blue-600";
+    if (val <= 300) return "bg-blue-100 text-blue-800";
+    if (val <= 500) return "bg-indigo-100 text-indigo-900 font-semibold";
+    return "bg-purple-100 text-purple-900 font-bold border border-purple-200";
   };
 
   return (
@@ -186,6 +201,26 @@ export default function StudentMealCostSection({ initialData, selectedDate }: { 
             <FileText size={14} className="text-orange-500"/>
             学生餐人工成本矩阵 (点击单元格查看人员穿透)
           </span>
+          {/* Legend */}
+          <div className="flex items-center gap-2 text-[10px] text-slate-400 font-semibold">
+            <span>色阶:</span>
+            <div className="flex items-center gap-0.5">
+              <span className="w-2 h-2 rounded bg-slate-50 inline-block border border-slate-200" />
+              <span>无</span>
+            </div>
+            <div className="flex items-center gap-0.5">
+              <span className="w-2 h-2 rounded bg-blue-50 inline-block" />
+              <span>低</span>
+            </div>
+            <div className="flex items-center gap-0.5">
+              <span className="w-2 h-2 rounded bg-indigo-100 inline-block" />
+              <span>中</span>
+            </div>
+            <div className="flex items-center gap-0.5">
+              <span className="w-2 h-2 rounded bg-purple-100 inline-block border border-purple-200" />
+              <span>高</span>
+            </div>
+          </div>
         </div>
         <div className="overflow-x-auto custom-scrollbar border border-slate-200 rounded-lg">
           <table className="w-full border-collapse table-fixed min-w-[1300px]">
@@ -207,14 +242,28 @@ export default function StudentMealCostSection({ initialData, selectedDate }: { 
                     {row.name}
                   </td>
                   {initialData.days.map((day) => {
-                    const c = row.daily[day]?.cost || 0;
+                    const d = row.daily[day] || {};
+                    const c = d.cost || 0;
+                    const h = d.hours || 0;
+                    const p = d.people || 0;
+                    const isFallback = d.is_fallback_rate;
+
                     return (
                       <td 
                         key={day} 
-                        className={`text-center py-1.5 border-r border-slate-200/50 font-mono text-slate-600 ${c > 0 ? "cursor-pointer hover:bg-orange-50" : ""}`}
-                        onClick={() => c > 0 ? onCellClick(row, day) : null}
+                        className={`text-center py-1.5 border-r border-slate-200/50 font-mono transition-colors ${c > 0 || h > 0 ? "cursor-pointer hover:opacity-80" : ""} ${getCellBg(c, isFallback)}`}
+                        onClick={() => (c > 0 || h > 0) ? onCellClick(row, day) : null}
                       >
-                        {c > 0 ? `¥${Math.round(c).toLocaleString()}` : <span className="text-slate-300">-</span>}
+                        {(c > 0 || h > 0) ? (
+                          <div className="flex flex-col items-center justify-center leading-tight py-0.5">
+                            <span className="font-bold">¥{Math.round(c)}</span>
+                            <span className="text-[8px] opacity-70 mt-0.5">
+                              {h}h / {p}人
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
                       </td>
                     );
                   })}

@@ -395,9 +395,9 @@ export default function OverviewSection({
         {/* A. 规则健康分 / 关键真实指标 */}
         <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-2">
-            <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
-              <span className="w-1.5 h-3 bg-orange-500 rounded-xs"></span>
-              规则健康分 / 关键真实指标
+            <span className={`text-xs font-bold text-slate-800 flex items-center gap-1 ${isFoldable ? "truncate" : ""}`} title="规则健康分 / 关键真实指标">
+              <span className="w-1.5 h-3 bg-orange-500 rounded-xs shrink-0"></span>
+              {isFoldable ? "规则健康分" : "规则健康分 / 关键真实指标"}
             </span>
             <span className="text-[9px] text-slate-400 font-mono">当日对账得分</span>
           </div>
@@ -456,8 +456,8 @@ export default function OverviewSection({
         {/* B. 真实工时摘要 */}
         <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-2">
-            <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
-              <span className="w-1.5 h-3 bg-blue-500 rounded-xs"></span>
+            <span className={`text-xs font-bold text-slate-800 flex items-center gap-1 ${isFoldable ? "truncate" : ""}`} title="真实工时摘要">
+              <span className="w-1.5 h-3 bg-blue-500 rounded-xs shrink-0"></span>
               真实工时摘要
             </span>
             <span className="text-[9px] text-slate-400 font-mono">核定实核数据</span>
@@ -476,9 +476,9 @@ export default function OverviewSection({
         {/* C. 5 个核心经营问题透视 */}
         <div className="bg-white rounded-xl border border-slate-200/80 p-3.5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 mb-1.5">
-            <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
-              <span className="w-1.5 h-3 bg-red-500 rounded-xs"></span>
-              5 个核心经营问题透视
+            <span className={`text-xs font-bold text-slate-800 flex items-center gap-1 ${isFoldable ? "truncate" : ""}`} title="5 个核心经营问题透视">
+              <span className="w-1.5 h-3 bg-red-500 rounded-xs shrink-0"></span>
+              {isFoldable ? "核心经营问题" : "5 个核心经营问题透视"}
             </span>
             <span className="text-[9px] text-slate-400 font-mono">对账决策穿透</span>
           </div>
@@ -565,9 +565,9 @@ export default function OverviewSection({
           {/* A. 集团工时效能波动趋势 (双轴) */}
           <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3">
             <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                <TrendingUp size={14} className="text-orange-500" />
-                集团工时效能波动趋势 (生产总工时与对账健康度双轴走势)
+              <span className={`text-xs font-bold text-slate-800 flex items-center gap-1.5 ${isFoldable ? "truncate" : ""}`} title="集团工时效能波动趋势 (生产总工时与对账健康度双轴走势)">
+                <TrendingUp size={14} className="text-orange-500 shrink-0" />
+                {isFoldable ? "工时效能趋势" : "集团工时效能波动趋势 (生产总工时与对账健康度双轴走势)"}
               </span>
               <span className="text-[9px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-mono font-bold">最近 7 天数据走势</span>
             </div>
@@ -604,9 +604,9 @@ export default function OverviewSection({
           {/* B. 二级部门人均工时 (柱状图 Top 12) */}
           <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3">
             <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                <BarChart3 size={14} className="text-blue-500" />
-                二级车间/部门人均工时 (生产总工时 Top 12 部门)
+              <span className={`text-xs font-bold text-slate-800 flex items-center gap-1.5 ${isFoldable ? "truncate" : ""}`} title="二级车间/部门人均工时 (生产总工时 Top 12 部门)">
+                <BarChart3 size={14} className="text-blue-500 shrink-0" />
+                {isFoldable ? "二级部门人均工时" : "二级车间/部门人均工时 (生产总工时 Top 12 部门)"}
               </span>
               <span className="text-[9px] text-slate-400 font-mono">柱上标注人均工时</span>
             </div>
@@ -639,9 +639,9 @@ export default function OverviewSection({
           {/* A. 二级部门总工时占比排行 Progress ranking */}
           <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3">
             <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                <Award size={14} className="text-orange-500" />
-                二级部门总工时占比排行 (前 10 部门)
+              <span className={`text-xs font-bold text-slate-800 flex items-center gap-1.5 ${isFoldable ? "truncate" : ""}`} title="二级部门总工时占比排行 (前 10 部门)">
+                <Award size={14} className="text-orange-500 shrink-0" />
+                {isFoldable ? "部门总工时占比排行" : "二级部门总工时占比排行 (前 10 部门)"}
               </span>
               <span className="text-[9px] text-slate-400 font-mono">工时占比排行</span>
             </div>
@@ -735,8 +735,8 @@ export default function OverviewSection({
           <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3">
             <div className="flex items-center gap-1.5 border-b border-slate-50 pb-2">
               <Gauge size={14} className="text-orange-500 shrink-0" />
-              <span className="text-xs font-bold text-slate-800">
-                综合运营对账雷达诊断 (5大核算维度)
+              <span className={`text-xs font-bold text-slate-800 ${isFoldable ? "truncate" : ""}`} title="综合运营对账雷达诊断 (5大核算维度)">
+                {isFoldable ? "综合对账雷达诊断" : "综合运营对账雷达诊断 (5大核算维度)"}
               </span>
             </div>
 
@@ -791,9 +791,11 @@ export default function OverviewSection({
         {/* Right Column: Workshop load health summary table */}
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between space-y-3">
           <div className="flex items-center justify-between border-b border-slate-50 pb-2 shrink-0">
-            <div className="flex items-center gap-1.5">
+            <div className={`flex items-center gap-1.5 ${isFoldable ? "min-w-0 flex-1" : ""}`}>
               <Compass size={14} className="text-orange-500 shrink-0" />
-              <span className="text-xs font-bold text-slate-800">二级生产车间运行效能与合规诊断摘要</span>
+              <span className={`text-xs font-bold text-slate-800 ${isFoldable ? "truncate" : ""}`} title="二级生产车间运行效能与合规诊断摘要">
+                {isFoldable ? "车间效能与合规诊断" : "二级生产车间运行效能与合规诊断摘要"}
+              </span>
             </div>
             <span className="text-[9px] text-slate-400 font-semibold">健康合格线: 90分</span>
           </div>

@@ -49,6 +49,9 @@ export default function TotalCostMatrixSection({ initialData, selectedDate }: { 
 
   const hasComposition = compositionData.length > 0;
 
+  // Grand total for daily sums
+  const getGrandTotal = () => totalCost;
+
   // Daily Trend 
   const trendData = initialData.days.map(day => {
     let dayTotal = 0;
@@ -61,6 +64,15 @@ export default function TotalCostMatrixSection({ initialData, selectedDate }: { 
       average: Math.round(totalCost / initialData.days.length)
     };
   });
+
+  // Determine cell color based on values (heatmap style)
+  const getCellBg = (val: number) => {
+    if (!val || val === 0) return "bg-slate-50 text-slate-300";
+    if (val < 500) return "bg-blue-50 text-blue-600";
+    if (val <= 1500) return "bg-blue-100 text-blue-800";
+    if (val <= 3000) return "bg-indigo-100 text-indigo-900 font-semibold";
+    return "bg-purple-100 text-purple-900 font-bold border border-purple-200";
+  };
 
   return (
     <div className={isFoldable ? "space-y-3" : "space-y-4"}>
@@ -156,6 +168,26 @@ export default function TotalCostMatrixSection({ initialData, selectedDate }: { 
             <Box size={14} className="text-orange-500"/>
             总成本日历视图
           </span>
+          {/* Legend */}
+          <div className="flex items-center gap-2 text-[10px] text-slate-400 font-semibold">
+            <span>色阶:</span>
+            <div className="flex items-center gap-0.5">
+              <span className="w-2 h-2 rounded bg-slate-50 inline-block border border-slate-200" />
+              <span>无</span>
+            </div>
+            <div className="flex items-center gap-0.5">
+              <span className="w-2 h-2 rounded bg-blue-50 inline-block" />
+              <span>低</span>
+            </div>
+            <div className="flex items-center gap-0.5">
+              <span className="w-2 h-2 rounded bg-indigo-100 inline-block" />
+              <span>中</span>
+            </div>
+            <div className="flex items-center gap-0.5">
+              <span className="w-2 h-2 rounded bg-purple-100 inline-block border border-purple-200" />
+              <span>高</span>
+            </div>
+          </div>
         </div>
         <div className="overflow-x-auto custom-scrollbar border border-slate-200 rounded-lg">
           <table className="w-full border-collapse table-fixed min-w-[1300px]">
@@ -177,10 +209,26 @@ export default function TotalCostMatrixSection({ initialData, selectedDate }: { 
                     {row.name}
                   </td>
                   {initialData.days.map((day) => {
-                    const c = row.daily[day]?.cost || 0;
+                    const d = row.daily[day] || {};
+                    const c = d.cost || 0;
+                    const h = d.hours || 0;
+                    const p = d.people || 0;
+
                     return (
-                      <td key={day} className="text-center py-1.5 border-r border-slate-200/50 font-mono text-slate-600">
-                        {c > 0 ? `¥${Math.round(c).toLocaleString()}` : <span className="text-slate-300">-</span>}
+                      <td 
+                        key={day} 
+                        className={`text-center py-1.5 border-r border-slate-200/50 font-mono transition-colors ${getCellBg(c)}`}
+                      >
+                        {c > 0 ? (
+                          <div className="flex flex-col items-center justify-center leading-tight py-0.5">
+                            <span className="font-bold">¥{Math.round(c)}</span>
+                            <span className="text-[8px] opacity-70 mt-0.5">
+                              {h}h / {p}人
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
                       </td>
                     );
                   })}
