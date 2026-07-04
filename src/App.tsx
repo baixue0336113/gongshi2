@@ -1,4 +1,3 @@
-// Executive Efficiency Matrix Application - Build Fixed
 import React, { useState, useEffect } from "react";
 import DeviceShell from "./components/DeviceShell";
 import LoginPage from "./components/LoginPage";
