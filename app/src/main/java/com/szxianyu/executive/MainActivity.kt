@@ -76,7 +76,8 @@ class MainActivity : ComponentActivity() {
                         isCollapsed = isSidebarCollapsed,
                         onToggleSidebar = { isSidebarCollapsed = !isSidebarCollapsed },
                         onLogout = { token = null },
-                        repo = repository
+                        repo = repository,
+                        token = token!!
                     )
                 }
             }
@@ -91,7 +92,8 @@ fun MainScaffold(
     isCollapsed: Boolean,
     onToggleSidebar: () -> Unit,
     onLogout: () -> Unit,
-    repo: XianyuRepository
+    repo: XianyuRepository,
+    token: String
 ) {
     Row(modifier = Modifier.fillMaxSize()) {
         // Sidebar
@@ -111,10 +113,10 @@ fun MainScaffold(
             // Content
             Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                 when (currentScreen) {
-                    Screen.Overview -> OverviewScreen()
-                    Screen.WorkMatrix -> WorkMatrixScreen(repo)
-                    Screen.TotalCostMatrix -> TotalCostMatrixScreen(repo)
-                    Screen.StudentMealCost -> StudentMealCostScreen(repo)
+                    Screen.Overview -> OverviewScreen(repo, token)
+                    Screen.WorkMatrix -> WorkMatrixScreen(repo, token)
+                    Screen.TotalCostMatrix -> TotalCostMatrixScreen(repo, token)
+                    Screen.StudentMealCost -> StudentMealCostScreen(repo, token)
                     Screen.Department -> DepartmentDetailScreen()
                     Screen.Employee -> EmployeePortraitScreen()
                     Screen.Support -> SupportHoursScreen()
@@ -123,10 +125,10 @@ fun MainScaffold(
                     Screen.PositionCost -> PositionCostScreen()
                     Screen.Risk -> RiskControlScreen()
                     Screen.Strategic -> StrategicTrackingScreen()
-                    Screen.Baimao -> BaimaoScreen(repo)
-                    Screen.Campus -> CampusScreen(repo)
-                    Screen.Convenience -> ConvenienceScreen(repo)
-                    Screen.ThirdParty -> ThirdPartyScreen(repo)
+                    Screen.Baimao -> BaimaoScreen(repo, token)
+                    Screen.Campus -> CampusScreen(repo, token)
+                    Screen.Convenience -> ConvenienceScreen(repo, token)
+                    Screen.ThirdParty -> ThirdPartyScreen(repo, token)
                 }
             }
         }
