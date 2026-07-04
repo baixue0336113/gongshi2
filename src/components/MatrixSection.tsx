@@ -448,6 +448,13 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
     );
   };
 
+  // Check if any day has regular or overtime hours
+  const hasRegularAndOvertimeGlobal = dynamicMatrix.rows.some(row => 
+    Object.values(row.daily).some((daily: any) => 
+      daily.regular_hours !== undefined || daily.overtime_hours !== undefined
+    )
+  );
+
   // Process data for Recharts Trend Curve
   const trendChartData = dynamicMatrix.days.map((day) => {
     let total = 0;
@@ -465,17 +472,16 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
         : (daily.people || 0);
       
       total += val;
-      if (viewMode === "hours") {
-        normal += Math.round(val * 0.85);
-        overtime += Math.round(val * 0.15);
+      if (viewMode === "hours" && hasRegularAndOvertimeGlobal) {
+        normal += (daily.regular_hours || 0);
+        overtime += (daily.overtime_hours || 0);
       }
     });
 
     return {
       day: String(day).split("-")[2] + "日",
       total,
-      normal,
-      overtime
+      ...(hasRegularAndOvertimeGlobal ? { normal, overtime } : {})
     };
   });
 
@@ -824,8 +830,12 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
                   <Legend wrapperStyle={{ fontSize: 9 }} />
                   {viewMode === "hours" ? (
                     <>
-                      <Area name="正班工时" type="monotone" dataKey="normal" stroke="#10b981" fillOpacity={0} strokeWidth={1.5} />
-                      <Area name="加班工时" type="monotone" dataKey="overtime" stroke="#ef4444" fillOpacity={0} strokeWidth={1.5} />
+                      {hasRegularAndOvertimeGlobal && (
+                        <>
+                          <Area name="正班工时" type="monotone" dataKey="normal" stroke="#10b981" fillOpacity={0} strokeWidth={1.5} />
+                          <Area name="加班工时" type="monotone" dataKey="overtime" stroke="#ef4444" fillOpacity={0} strokeWidth={1.5} />
+                        </>
+                      )}
                       <Area name="总工时" type="monotone" dataKey="total" stroke="#f97316" fill="url(#colorTotal)" strokeWidth={2} />
                     </>
                   ) : (
