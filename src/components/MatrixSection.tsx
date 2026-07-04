@@ -304,117 +304,146 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
     return "bg-emerald-100 text-emerald-800 font-semibold";
   };
 
+  const formatCost = (val: number) => {
+    if (val >= 10000) return `¥${(val/10000).toFixed(1)}万`;
+    return `¥${Math.round(val).toLocaleString()}`;
+  };
+
   // Get dynamic combined cell layouts for enhanced double density visualization
   const getCellLabel = (row: MatrixRow, day: string) => {
     const daily = row.daily[day];
-    if (!daily) return "-";
+    if (!daily) return <div className="text-slate-300">-</div>;
 
-    const isFallback = daily.is_fallback_rate || (row.fallback_rate_cells && row.fallback_rate_cells.includes(day));
+    // Common values
+    const qty = daily.qty || 0;
+    const cost = daily.cost || 0;
+    const hours = daily.hours || 0;
+    const people = daily.people || 0;
 
-    if (scope === "baimao") {
-      const qty = daily.qty !== undefined ? daily.qty : 0;
-      const cost = daily.cost !== undefined ? daily.cost : 0;
-      if (qty === 0 && cost === 0) return "-";
-      return (
-        <div className="flex flex-col items-center justify-center py-0.5 leading-none">
-          <span className="font-semibold">{qty}件</span>
-          <span className="text-[7.5px] text-slate-400 mt-0.5 font-normal">¥{cost}</span>
-        </div>
-      );
+    if (qty === 0 && cost === 0 && hours === 0 && people === 0) {
+      return <div className="text-slate-300">-</div>;
     }
 
-    if (scope === "campus") {
-      const people = daily.people !== undefined ? daily.people : 0;
-      const hours = daily.hours !== undefined ? daily.hours : 0;
-      const cost = daily.cost !== undefined ? daily.cost : 0;
-      if (people === 0 && hours === 0 && cost === 0) return "-";
-      return (
-        <div className="flex flex-col items-center justify-center py-0.5 leading-none">
-          <span className="font-semibold">{people}人 · {hours}h</span>
-          <span className="text-[7.5px] text-slate-400 mt-0.5 font-normal">¥{cost}</span>
-        </div>
-      );
-    }
-
-    if (scope === "convenience" || scope === "third_party") {
-      const hours = daily.hours !== undefined ? daily.hours : 0;
-      const cost = daily.cost !== undefined ? daily.cost : 0;
-      const people = daily.people !== undefined ? daily.people : 0;
-      if (hours === 0 && cost === 0) return "-";
-      
+    if (scope === "work_matrix") {
       const peopleCount = people > 0 ? people : 1;
       const deviation = hours - peopleCount * 8;
       const isDevPositive = deviation > 0;
-      const devText = deviation === 0 ? "±0" : (isDevPositive ? `+${deviation.toFixed(1)}` : `${deviation.toFixed(1)}`);
-      const devColor = deviation === 0 ? "text-slate-400" : (isDevPositive ? "text-rose-500 font-bold" : "text-emerald-500 font-bold");
-
+      const devText = deviation === 0 ? "" : (isDevPositive ? `+${deviation.toFixed(1)}h` : `${deviation.toFixed(1)}h`);
+      const devColor = deviation === 0 ? "" : (isDevPositive ? "text-rose-500" : "text-emerald-500");
+      
       return (
-        <div className="flex flex-col items-center justify-center py-0.5 leading-none">
-          <span className="font-semibold flex items-center gap-0.5">
-            {hours}h
-            <span className={`text-[7px] scale-90 ${devColor}`}>({devText})</span>
+        <div className="flex flex-col items-center justify-center py-0.5 leading-tight">
+          <span className="font-bold">{hours}h</span>
+          <span className="text-[9px] text-slate-400 mt-0.5 flex items-center gap-1">
+            <span>{people}人</span>
+            {deviation !== 0 && <span className={devColor}>{devText}</span>}
           </span>
-          <span className="text-[7.5px] text-slate-400 mt-0.5 font-normal">¥{cost} ({people}人)</span>
+        </div>
+      );
+    }
+    
+    if (scope === "student_meal_cost") {
+      return (
+        <div className="flex flex-col items-center justify-center py-0.5 leading-tight">
+          <span className="font-bold">¥{cost}</span>
+          <span className="text-[9px] text-slate-400 mt-0.5">
+            {hours}h / {people}人
+          </span>
         </div>
       );
     }
 
-    // Default Ordinary hours & cost mapping
-    const hours = daily.hours !== undefined ? daily.hours : 0;
-    const cost = daily.cost !== undefined ? daily.cost : 0;
-    if (hours === 0 && cost === 0) return "-";
-
-    const peopleCount = daily.people !== undefined ? daily.people : 1;
-    const deviation = hours - peopleCount * 8;
-    const isDevPositive = deviation > 0;
-    const devText = deviation === 0 ? "±0" : (isDevPositive ? `+${deviation.toFixed(1)}` : `${deviation.toFixed(1)}`);
-    const devColor = deviation === 0 ? "text-slate-400" : (isDevPositive ? "text-rose-500 font-bold" : "text-emerald-500 font-bold");
-
-    return (
-      <div className="flex flex-col items-center justify-center py-0.5 leading-none relative">
-        <span className="font-semibold flex items-center gap-0.5">
-          {hours}h
-          <span className={`text-[7px] scale-90 ${devColor}`} title={`偏差基准: ${peopleCount * 8}h`}>
-            ({devText})
+    if (scope === "total_cost_matrix") {
+      return (
+        <div className="flex flex-col items-center justify-center py-0.5 leading-tight">
+          <span className="font-bold">¥{cost}</span>
+          <span className="text-[9px] text-slate-400 mt-0.5">
+            {people}人
           </span>
-        </span>
-        <span className="text-[7.5px] text-slate-400 mt-0.5 font-normal flex items-center justify-center gap-0.5">
-          ¥{cost}
-          {isFallback && <span className="text-[7px] font-bold text-red-500" title="工资保底兜底保障">*</span>}
-        </span>
-      </div>
-    );
+        </div>
+      );
+    }
+
+    if (scope === "baimao") {
+      return (
+        <div className="flex flex-col items-center justify-center py-0.5 leading-tight">
+          <span className="font-bold">{qty}件</span>
+          <span className="text-[9px] text-slate-400 mt-0.5">¥{cost}</span>
+        </div>
+      );
+    }
+
+    if (scope === "campus") {
+      return (
+        <div className="flex flex-col items-center justify-center py-0.5 leading-tight">
+          <span className="font-bold">{hours}h / {people}人</span>
+          <span className="text-[9px] text-slate-400 mt-0.5">¥{cost}</span>
+        </div>
+      );
+    }
+
+    if (scope === "convenience" || scope === "third_party") {
+      return (
+        <div className="flex flex-col items-center justify-center py-0.5 leading-tight">
+          <span className="font-bold">{hours}h</span>
+          <span className="text-[9px] text-slate-400 mt-0.5">¥{cost} / {people}人</span>
+        </div>
+      );
+    }
+
+    return <div className="text-slate-300">-</div>;
   };
 
   const getRowTotalLabel = (row: MatrixRow) => {
+    if (scope === "work_matrix") {
+      return (
+        <div className="flex flex-col items-center justify-center py-0.5 leading-tight">
+          <span className="font-bold text-slate-800">{Math.round(row.total_hours || 0)}h</span>
+          <span className="text-[9px] text-slate-500 mt-0.5">{(row.attendance_days || row.total_people || 0)}人</span>
+        </div>
+      );
+    }
+
+    if (scope === "student_meal_cost" || scope === "total_cost_matrix") {
+      return (
+        <div className="flex flex-col items-center justify-center py-0.5 leading-tight">
+          <span className="font-bold text-slate-800">{formatCost(row.total_cost || 0)}</span>
+          <span className="text-[9px] text-slate-500 mt-0.5">{(row.attendance_days || row.total_people || 0)}人</span>
+        </div>
+      );
+    }
+
     if (scope === "baimao") {
       return (
-        <div className="flex flex-col items-center justify-center leading-none py-1">
-          <span className="font-bold text-slate-800">{(row.total_qty || 0).toLocaleString()}件</span>
-          <span className="text-[8px] text-slate-500 font-normal mt-0.5">¥{(row.total_cost || 0).toLocaleString()}</span>
+        <div className="flex flex-col items-center justify-center py-0.5 leading-tight">
+          <span className="font-bold text-slate-800">{Math.round(row.total_qty || 0)}件</span>
+          <span className="text-[9px] text-slate-500 mt-0.5">{formatCost(row.total_cost || 0)}</span>
         </div>
       );
     }
+    
     if (scope === "campus") {
       return (
-        <div className="flex flex-col items-center justify-center leading-none py-1">
-          <span className="font-bold text-slate-800">{(row.total_hours || 0).toLocaleString()}h</span>
-          <span className="text-[8px] text-slate-500 font-normal mt-0.5">¥{(row.total_cost || 0).toLocaleString()} ({row.attendance_days || 0}人天)</span>
+        <div className="flex flex-col items-center justify-center py-0.5 leading-tight">
+          <span className="font-bold text-slate-800">{Math.round(row.total_hours || 0)}h</span>
+          <span className="text-[9px] text-slate-500 mt-0.5">{formatCost(row.total_cost || 0)}</span>
         </div>
       );
     }
+    
     if (scope === "convenience" || scope === "third_party") {
       return (
-        <div className="flex flex-col items-center justify-center leading-none py-1">
-          <span className="font-bold text-slate-800">{(row.total_hours || 0).toLocaleString()}h</span>
-          <span className="text-[8px] text-slate-500 font-normal mt-0.5">¥{(row.total_cost || 0).toLocaleString()}</span>
+        <div className="flex flex-col items-center justify-center py-0.5 leading-tight">
+          <span className="font-bold text-slate-800">{Math.round(row.total_hours || 0)}h</span>
+          <span className="text-[9px] text-slate-500 mt-0.5">{formatCost(row.total_cost || 0)}</span>
         </div>
       );
     }
+
     return (
-      <div className="flex flex-col items-center justify-center leading-none py-1">
-        <span className="font-bold text-slate-800">{(row.total_hours || 0).toLocaleString()}h</span>
-        <span className="text-[8px] text-slate-500 font-normal mt-0.5">¥{(row.total_cost || 0).toLocaleString()}</span>
+      <div className="flex flex-col items-center justify-center py-0.5 leading-tight">
+        <span className="font-bold text-slate-800">{Math.round(row.total_hours || 0)}h</span>
+        <span className="text-[9px] text-slate-500 mt-0.5">{formatCost(row.total_cost || 0)}</span>
       </div>
     );
   };
@@ -888,6 +917,7 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
                     return (
                       <th
                         key={day}
+                        style={{ minWidth: isFoldable ? 58 : 64, width: isFoldable ? 58 : 64 }}
                         className={`text-center py-2 border-r border-slate-200/50 ${
                           isWeekend ? "bg-rose-50/20 text-rose-500" : ""
                         }`}
@@ -913,13 +943,13 @@ export default function MatrixSection({ scope, initialData, selectedDate, isDemo
                     {dynamicMatrix.days.map((day) => {
                       const sum = getDailySum(day);
                       return (
-                        <th key={`sum-${day}`} className="text-center py-1.5 border-r border-slate-200/50 font-mono text-[9px] text-slate-700">
-                          {viewMode === "cost" ? `¥${Math.round(sum).toLocaleString()}` : viewMode === "hours" ? `${sum.toFixed(1)}h` : viewMode === "people" ? `${Math.round(sum)}人` : `${Math.round(sum)}`}
+                        <th key={`sum-${day}`} style={{ minWidth: isFoldable ? 58 : 64, width: isFoldable ? 58 : 64 }} className="text-center py-1.5 border-r border-slate-200/50 font-mono text-[9px] text-slate-700">
+                          {viewMode === "cost" ? formatCost(sum) : viewMode === "hours" ? `${sum.toFixed(1)}h` : viewMode === "people" ? `${Math.round(sum)}人` : `${Math.round(sum)}`}
                         </th>
                       );
                     })}
                     <th className="text-center bg-slate-100 border-l border-slate-200 sticky right-0 z-10 font-mono text-slate-800 shadow-[-2px_0_5px_rgba(0,0,0,0.02)]">
-                      {viewMode === "cost" ? `¥${Math.round(getGrandTotal()).toLocaleString()}` : viewMode === "hours" ? `${getGrandTotal().toFixed(1)}h` : viewMode === "people" ? `${Math.round(getGrandTotal())}人` : `${Math.round(getGrandTotal())}`}
+                      {viewMode === "cost" ? formatCost(getGrandTotal()) : viewMode === "hours" ? `${getGrandTotal().toFixed(1)}h` : viewMode === "people" ? `${Math.round(getGrandTotal())}人` : `${Math.round(getGrandTotal())}`}
                     </th>
                   </tr>
                 )}
