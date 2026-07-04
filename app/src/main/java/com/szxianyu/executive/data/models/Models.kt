@@ -53,12 +53,19 @@ data class MatrixDailyData(
     val hours: Double? = null,
     val cost: Double? = null,
     val abnormal: Boolean? = null,
-    val attendance: String? = null
+    val attendance: String? = null,
+    val regular_hours: Double? = null,
+    val hourly_rate: Double? = null,
+    val overtime_hours: Double? = null,
+    val overtime_hourly_rate: Double? = null,
+    val is_fallback_rate: Boolean? = null,
+    val people: Int? = null
 )
 
 data class MatrixRow(
     val id: String,
     val name: String,
+    val employee_name: String? = null,
     val total_hours: Double? = null,
     val total_cost: Double? = null,
     val daily: Map<String, MatrixDailyData> = emptyMap(),

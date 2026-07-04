@@ -34,6 +34,7 @@ fun MatrixScreenContainer(
         rows = rows,
         selectedMonth = selectedMonth,
         kbiSummary = kbi,
+        mockTitle = mockTitle,
         onMonthChange = { selectedMonth = it }
     )
 }

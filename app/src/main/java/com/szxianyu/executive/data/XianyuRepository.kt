@@ -69,9 +69,18 @@ class XianyuRepository(private val apiService: XianyuApiService) {
                     MatrixCellData(
                         value = (detail.hours ?: detail.cost ?: 0).toString(),
                         subValue = detail.attendance,
-                        isAbnormal = detail.abnormal ?: false
+                        isAbnormal = detail.abnormal ?: false,
+                        regular_hours = detail.regular_hours,
+                        hourly_rate = detail.hourly_rate,
+                        overtime_hours = detail.overtime_hours,
+                        overtime_hourly_rate = detail.overtime_hourly_rate,
+                        is_fallback_rate = detail.is_fallback_rate,
+                        people = detail.people,
+                        cost = detail.cost,
+                        hours = detail.hours
                     )
-                }
+                },
+                children = row.children
             )
         }
     }

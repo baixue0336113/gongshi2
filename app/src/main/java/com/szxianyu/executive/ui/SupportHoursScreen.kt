@@ -327,6 +327,13 @@ fun SupportHoursScreen() {
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // Chart 1: Top 10 Supported Departments
+                val rankData = remember(filteredRecords) {
+                    filteredRecords.groupBy { it.targetDept }
+                        .map { (dept, list) -> dept to list.sumOf { it.hours.toDouble() }.toFloat() }
+                        .sortedByDescending { it.second }
+                }
+                val maxRankHours = rankData.firstOrNull()?.second?.coerceAtLeast(1f) ?: 1f
+
                 Card(
                     modifier = Modifier.weight(1f),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -335,31 +342,35 @@ fun SupportHoursScreen() {
                     Column(Modifier.padding(10.dp)) {
                         Text("被支援部门排行 TOP10 (工时排名)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Slate700)
                         Spacer(Modifier.height(10.dp))
-                        // Build small horizontal bars to mock ranking
-                        val rankData = listOf("学生餐二车间" to 20.0f, "学生餐一车间" to 8.0f, "方便菜加工部" to 8.0f, "冷链物流仓储" to 8.0f)
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            rankData.forEach { (dept, hours) ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(dept, fontSize = 8.sp, color = Slate500, modifier = Modifier.width(65.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Spacer(Modifier.width(4.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(8.dp)
-                                            .background(Slate100, RoundedCornerShape(4.dp))
+                        if (rankData.isEmpty()) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("无部门排行数据", fontSize = 8.5.sp, color = Slate400)
+                            }
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                rankData.take(4).forEach { (dept, hours) ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
+                                        Text(dept, fontSize = 8.sp, color = Slate500, modifier = Modifier.width(65.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Spacer(Modifier.width(4.dp))
                                         Box(
                                             modifier = Modifier
-                                                .fillMaxWidth(hours / 20.0f)
-                                                .fillMaxHeight()
-                                                .background(Blue500, RoundedCornerShape(4.dp))
-                                        )
+                                                .weight(1f)
+                                                .height(8.dp)
+                                                .background(Slate100, RoundedCornerShape(4.dp))
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth(hours / maxRankHours)
+                                                    .fillMaxHeight()
+                                                    .background(Blue500, RoundedCornerShape(4.dp))
+                                            )
+                                        }
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("${hours.toInt()}h", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Slate700, modifier = Modifier.width(22.dp))
                                     }
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("${hours.toInt()}h", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Slate700, modifier = Modifier.width(22.dp))
                                 }
                             }
                         }
@@ -367,6 +378,14 @@ fun SupportHoursScreen() {
                 }
 
                 // Chart 2: Daily Trend Area Chart
+                val trendPoints = remember(filteredRecords) {
+                    filteredRecords.groupBy { it.date }
+                        .map { (date, list) ->
+                            val dateLabel = date.split("-").last() + "日"
+                            ChartPoint(dateLabel, list.sumOf { it.hours.toDouble() }.toFloat())
+                        }.sortedBy { it.label }
+                }
+
                 Card(
                     modifier = Modifier.weight(1f),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -375,21 +394,30 @@ fun SupportHoursScreen() {
                     Column(Modifier.padding(10.dp)) {
                         Text("每日支援趋势 (面积图)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Slate700)
                         Spacer(Modifier.height(10.dp))
-                        CustomAreaChart(
-                            points = listOf(
-                                ChartPoint("07-01", 12f),
-                                ChartPoint("07-02", 16f),
-                                ChartPoint("07-03", 12f),
-                                ChartPoint("07-04", 4f)
-                            ),
-                            modifier = Modifier.fillMaxSize(),
-                            color1 = Blue500,
-                            title1 = "支援工时 (h)"
-                        )
+                        if (trendPoints.isEmpty()) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("无每日支援数据", fontSize = 8.5.sp, color = Slate400)
+                            }
+                        } else {
+                            CustomAreaChart(
+                                points = trendPoints,
+                                modifier = Modifier.fillMaxSize(),
+                                color1 = Blue500,
+                                title1 = "支援工时 (h)"
+                            )
+                        }
                     }
                 }
 
                 // Chart 3: Dispatch Pie Chart (派出占比)
+                val pieSlices = remember(filteredRecords) {
+                    val colors = listOf(Blue500, Emerald500, Orange500, Color(0xFF8B5CF6), Color(0xFFEC4899), Color(0xFF14B8A6))
+                    filteredRecords.groupBy { it.sourceDept }
+                        .mapIndexed { idx, (dept, list) ->
+                            PieSlice(dept, list.sumOf { it.hours.toDouble() }.toFloat(), colors[idx % colors.size])
+                        }
+                }
+
                 Card(
                     modifier = Modifier.weight(1f),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -398,15 +426,16 @@ fun SupportHoursScreen() {
                     Column(Modifier.padding(10.dp)) {
                         Text("派出部门占比 (饼图)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Slate700)
                         Spacer(Modifier.height(10.dp))
-                        CustomPieChart(
-                            slices = listOf(
-                                PieSlice("学生餐一车间", 16f, Blue500),
-                                PieSlice("方便菜加工部", 4f, Emerald500),
-                                PieSlice("净菜生产线", 12f, Orange500),
-                                PieSlice("冷链物流仓储", 8f, Color(0xFF8B5CF6))
-                            ),
-                            modifier = Modifier.fillMaxSize()
-                        )
+                        if (pieSlices.isEmpty()) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("无派出占比数据", fontSize = 8.5.sp, color = Slate400)
+                            }
+                        } else {
+                            CustomPieChart(
+                                slices = pieSlices,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
                 }
             }

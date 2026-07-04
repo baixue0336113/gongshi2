@@ -37,6 +37,197 @@ fun shiftMonth(current: String, offset: Int): String {
     return String.format("%d-%02d", newYear, newMonth)
 }
 
+data class DisplayCell(
+    val mainText: String,
+    val subText: String,
+    val numericValue: Float,
+    val bg: Color,
+    val textAccent: Color
+)
+
+fun getDisplayCell(rowName: String, day: String, cell: MatrixCellData?, mockTitle: String, viewMode: String, isWorkMatrix: Boolean = false, studentMealCostType: String = "all"): DisplayCell {
+    val rawVal = cell?.value?.replace(",", "")?.toFloatOrNull() ?: 0f
+    if (rawVal == 0f && (cell?.cost ?: 0.0) == 0.0 && (cell?.hours ?: 0.0) == 0.0) {
+        return DisplayCell("-", "", 0f, Color.Transparent, Slate300)
+    }
+
+    var mainText = ""
+    var subText = ""
+    var numericValue = rawVal
+    
+    if (mockTitle == "学生餐成本") {
+        val cost = when (studentMealCostType) {
+            "normal" -> (cell?.regular_hours ?: 0.0) * (cell?.hourly_rate ?: 0.0)
+            "overtime" -> (cell?.overtime_hours ?: 0.0) * (cell?.overtime_hourly_rate ?: 0.0)
+            "fallback" -> if (cell?.is_fallback_rate == true) (cell.cost ?: rawVal.toDouble()) else 0.0
+            else -> cell?.cost ?: rawVal.toDouble()
+        }
+        val hours = when (studentMealCostType) {
+            "normal" -> cell?.regular_hours ?: 0.0
+            "overtime" -> cell?.overtime_hours ?: 0.0
+            else -> cell?.hours ?: ((cell?.regular_hours ?: 0.0) + (cell?.overtime_hours ?: 0.0))
+        }
+        val people = cell?.people ?: 0
+
+        if (cost <= 0.0) {
+            return DisplayCell("-", "", 0f, Color.Transparent, Slate300)
+        }
+
+        mainText = "¥${Math.round(cost)}"
+        subText = "${String.format("%.1f", hours)}h / ${people}人"
+        numericValue = cost.toFloat()
+
+        val bg = if (cell?.is_fallback_rate == true) {
+            Color(0xFFFEF3C7) // bg-amber-50
+        } else {
+            when {
+                cost < 150.0 -> Color(0xFFEFF6FF)  // bg-blue-50
+                cost <= 300.0 -> Color(0xFFDBEAFE) // bg-blue-100
+                cost <= 500.0 -> Color(0xFFE0E7FF) // bg-indigo-100
+                else -> Color(0xFFF3E8FF)          // bg-purple-100
+            }
+        }
+
+        val textAccent = if (cell?.is_fallback_rate == true) {
+            Color(0xFF92400E) // text-amber-900
+        } else {
+            when {
+                cost < 150.0 -> Color(0xFF2563EB)  // text-blue-600
+                cost <= 300.0 -> Color(0xFF1E40AF) // text-blue-800
+                cost <= 500.0 -> Color(0xFF3730A3) // text-indigo-900
+                else -> Color(0xFF6B21A8)          // text-purple-900
+            }
+        }
+
+        return DisplayCell(mainText, subText, numericValue, bg, textAccent)
+    }
+
+    when (mockTitle) {
+        "白猫" -> {
+            if (viewMode == "清洗件数" || viewMode.isEmpty()) {
+                mainText = "${rawVal.toInt()}件"
+                val cost = (rawVal * 12).toInt()
+                subText = "¥$cost"
+                numericValue = rawVal
+            } else {
+                val cost = (rawVal * 12).toInt()
+                mainText = "¥$cost"
+                subText = "${rawVal.toInt()}件"
+                numericValue = cost.toFloat()
+            }
+        }
+        "校园兼职" -> {
+            val hours = rawVal
+            val people = (rawVal / 8f).toInt() + 1
+            val cost = (rawVal * 25).toInt()
+            if (viewMode == "出勤人数" || viewMode.isEmpty()) {
+                mainText = "${people}人"
+                subText = "${hours.toInt()}h"
+                numericValue = people.toFloat()
+            } else {
+                mainText = "¥$cost"
+                subText = "${people}人 / ${hours.toInt()}h"
+                numericValue = cost.toFloat()
+            }
+        }
+        "方便菜肴" -> {
+            val hours = rawVal
+            val cost = (rawVal * 28).toInt()
+            val people = (rawVal / 8f).toInt() + 1
+            if (viewMode == "加工工时" || viewMode.isEmpty()) {
+                mainText = "${hours.toInt()}h"
+                subText = "¥$cost / ${people}人"
+                numericValue = hours
+            } else if (viewMode == "核算成本") {
+                mainText = "¥$cost"
+                subText = "${hours.toInt()}h / ${people}人"
+                numericValue = cost.toFloat()
+            } else {
+                mainText = "${people}人"
+                subText = "${hours.toInt()}h / ¥$cost"
+                numericValue = people.toFloat()
+            }
+        }
+        "第三方" -> {
+            val hours = rawVal
+            val cost = (rawVal * 30).toInt()
+            val people = (rawVal / 8f).toInt() + 1
+            if (viewMode == "派遣工时" || viewMode.isEmpty()) {
+                mainText = "${hours.toInt()}h"
+                subText = "¥$cost"
+                numericValue = hours
+            } else if (viewMode == "派遣费用") {
+                mainText = "¥$cost"
+                subText = "${hours.toInt()}h / ${people}人"
+                numericValue = cost.toFloat()
+            } else {
+                mainText = "${people}人"
+                subText = "${hours.toInt()}h / ¥$cost"
+                numericValue = people.toFloat()
+            }
+        }
+        else -> {
+            // Default MatrixBase behavior
+            if (isWorkMatrix) {
+                mainText = "${rawVal.toInt()}h"
+                subText = "${(rawVal / 8.0f).toInt() + 1}人"
+                numericValue = rawVal
+            } else {
+                mainText = "¥${rawVal.toInt()}"
+                subText = "${(rawVal / 45.0f).toInt() + 1}h"
+                numericValue = rawVal
+            }
+        }
+    }
+
+    // Heatmap bg and text accent based on viewMode and title
+    val isHoursOrQtyOrPeople = isWorkMatrix || 
+        viewMode.contains("工时") || 
+        viewMode.contains("件") || 
+        viewMode.contains("人") || 
+        viewMode.isEmpty()
+
+    val bg = when {
+        numericValue == 0f -> Color.Transparent
+        isHoursOrQtyOrPeople -> {
+            when {
+                rawVal < 4f -> Color(0xFFECFDF5)
+                rawVal <= 8f -> Color(0xFFD1FAE5)
+                rawVal <= 10f -> Color(0xFFFEF3C7)
+                else -> Color(0xFFFEE2E2)
+            }
+        }
+        else -> { // Cost view modes
+            when {
+                numericValue < 500f -> Color(0xFFEFF6FF)
+                numericValue <= 1500f -> Color(0xFFDBEAFE)
+                numericValue <= 3000f -> Color(0xFFC7D2FE)
+                else -> Color(0xFFF3E8FF)
+            }
+        }
+    }
+
+    val textAccent = when {
+        numericValue == 0f -> Slate300
+        isHoursOrQtyOrPeople -> {
+            when {
+                rawVal <= 8f -> Emerald700
+                rawVal <= 10f -> Orange600
+                else -> Rose600
+            }
+        }
+        else -> {
+            when {
+                numericValue <= 1500f -> Blue700
+                numericValue <= 3000f -> Color(0xFF4F46E5)
+                else -> Color(0xFF7C3AED)
+            }
+        }
+    }
+
+    return DisplayCell(mainText, subText, numericValue, bg, textAccent)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MatrixBase(
@@ -45,6 +236,7 @@ fun MatrixBase(
     rows: List<MatrixRowData>,
     selectedMonth: String,
     kbiSummary: List<Triple<String, String, Color>> = emptyList(),
+    mockTitle: String = "",
     onMonthChange: (String) -> Unit
 ) {
     var keyword by remember { mutableStateOf("") }
@@ -54,6 +246,15 @@ fun MatrixBase(
     var studentMealEmployeeType by remember { mutableStateOf("all") }
     var studentMealCostType by remember { mutableStateOf("all") }
 
+    val defaultViewMode = when (mockTitle) {
+        "白猫" -> "清洗件数"
+        "校园兼职" -> "出勤人数"
+        "方便菜肴" -> "加工工时"
+        "第三方" -> "派遣工时"
+        else -> ""
+    }
+    var viewMode by remember(mockTitle) { mutableStateOf(defaultViewMode) }
+
     val horizontalScrollState = rememberScrollState()
 
     // Extract departments list dynamically
@@ -62,91 +263,152 @@ fun MatrixBase(
     }
 
     // Process and Filter Rows based on input search/dropdowns
-    val filteredRows = remember(rows, keyword, selectedDept, studentMealCostType) {
+    val filteredRows = remember(rows, keyword, selectedDept, studentMealCostType, mockTitle, viewMode) {
         rows.filter { r ->
             val matchesDept = selectedDept == "全部部门" || r.name.trim() == selectedDept
             val matchesKeyword = keyword.isEmpty() || r.name.lowercase().contains(keyword.lowercase())
             matchesDept && matchesKeyword
         }.map { r ->
-            // If cost type filter is applied in student meal cost, adjust values mockingly
-            if (studentMealCostType != "all" && title.contains("学生餐")) {
-                val factor = when (studentMealCostType) {
-                    "normal" -> 0.7f
-                    "overtime" -> 0.2f
-                    "fallback" -> 0.1f
-                    else -> 1.0f
-                }
+            if (mockTitle == "学生餐成本") {
+                val updatedDaily = r.daily.mapValues { (day, cell) ->
+                    val disp = getDisplayCell(r.name, day, cell, mockTitle, viewMode, false, studentMealCostType)
+                    cell.copy(value = disp.numericValue.toString())
+                }.filterValues { (it.value.toDoubleOrNull() ?: 0.0) > 0.0 }
+                
+                val sumCost = updatedDaily.values.sumOf { it.value.toDoubleOrNull() ?: 0.0 }
                 r.copy(
-                    total = (r.total.replace(",", "").toFloatOrNull() ?: 0f * factor).toInt().toString(),
-                    daily = r.daily.mapValues { (_, cell) ->
-                        cell.copy(
-                            value = (cell.value.replace(",", "").toFloatOrNull() ?: 0f * factor).toInt().toString()
-                        )
-                    }
+                    total = "¥${String.format("%,.0f", sumCost)}",
+                    daily = updatedDaily
                 )
             } else {
                 r
             }
+        }.filter { it.daily.isNotEmpty() || mockTitle != "学生餐成本" }
+    }
+
+    // Process totals of rows dynamically based on selected viewMode
+    val processedRows = remember(filteredRows, viewMode, mockTitle, studentMealCostType) {
+        filteredRows.map { r ->
+            var calculatedTotal = 0f
+            r.daily.forEach { (day, cell) ->
+                val disp = getDisplayCell(r.name, day, cell, mockTitle, viewMode, title.contains("工时"), studentMealCostType)
+                calculatedTotal += disp.numericValue
+            }
+            val formattedTotal = if (mockTitle == "学生餐成本" || viewMode.contains("成本") || viewMode.contains("费用") || viewMode.contains("核算")) {
+                "¥${String.format("%,.0f", calculatedTotal)}"
+            } else if (viewMode.contains("件")) {
+                "${calculatedTotal.toInt()}件"
+            } else if (viewMode.contains("人")) {
+                "${calculatedTotal.toInt()}人"
+            } else if (viewMode.contains("工时")) {
+                "${calculatedTotal.toInt()}h"
+            } else {
+                r.total
+            }
+            r.copy(total = formattedTotal)
         }
     }
 
     // Interactive drilldown dialogue state
     var selectedDrilldownCell by remember { mutableStateOf<DrilldownCellInfo?>(null) }
 
+    // Dynamic Pie Chart Slices
+    val pieChartSlices = remember(processedRows, mockTitle) {
+        val colors = listOf(Blue500, Emerald500, Orange500, Color(0xFF8B5CF6), Color(0xFFEC4899), Color(0xFF14B8A6), Color(0xFFEAB308), Color(0xFF6366F1))
+        if (mockTitle == "总成本矩阵") {
+            val compositionMap = mutableMapOf<String, Float>()
+            processedRows.forEach { row ->
+                val name = row.name
+                val category = when {
+                    name.contains("学生餐") -> "学生餐人工成本"
+                    name.contains("方便菜") -> "方便菜肴人工成本"
+                    name.contains("兼职") -> "校园兼职成本"
+                    name.contains("白猫") || name.contains("清洗") -> "白猫清洗成本"
+                    name.contains("劳务") || name.contains("派遣") -> "第三方劳务成本"
+                    else -> "其他成本"
+                }
+                val value = row.total.replace("¥", "").replace(",", "").toFloatOrNull() ?: 0f
+                compositionMap[category] = (compositionMap[category] ?: 0f) + value
+            }
+            compositionMap.entries.mapIndexed { idx, (name, value) ->
+                PieSlice(
+                    name = name,
+                    value = value,
+                    color = colors[idx % colors.size]
+                )
+            }.filter { it.value > 0f }
+        } else {
+            processedRows.mapIndexed { idx, row ->
+                val totalVal = row.total.replace("¥", "").replace("件", "").replace("人", "").replace("h", "").replace(",", "").toFloatOrNull() ?: 0f
+                PieSlice(
+                    name = row.name.replace("  └ ", "").trim(),
+                    value = totalVal,
+                    color = colors[idx % colors.size]
+                )
+            }.filter { it.value > 0f }
+        }
+    }
+
     // Dynamic metrics calculation for the 4 KBI Cards
-    val kbiCards = remember(filteredRows, selectedMonth, title) {
-        val count = filteredRows.size
-        val totalSum = filteredRows.sumOf { it.total.replace(",", "").toDoubleOrNull() ?: 0.0 }
+    val kbiCards = remember(processedRows, selectedMonth, title, viewMode, mockTitle, pieChartSlices) {
+        val count = processedRows.size
+        var totalSum = 0.0
+        processedRows.forEach { r ->
+            val num = r.total.replace("¥", "").replace("件", "").replace("人", "").replace("h", "").replace(",", "").toDoubleOrNull() ?: 0.0
+            totalSum += num
+        }
         val avgVal = if (count > 0) totalSum / count else 0.0
 
-        val formattedTotal = if (title.contains("工时")) {
-            "${String.format("%,.0f", totalSum)} h"
-        } else {
+        val formattedTotal = if (viewMode.contains("成本") || viewMode.contains("费用") || title.contains("成本") || title.contains("学生餐") || mockTitle == "总成本矩阵") {
             "¥${String.format("%,.0f", totalSum)}"
+        } else if (viewMode.contains("件")) {
+            "${String.format("%,.0f", totalSum)} 件"
+        } else if (viewMode.contains("人")) {
+            "${String.format("%,.0f", totalSum)} 人"
+        } else {
+            "${String.format("%,.0f", totalSum)} h"
         }
 
-        val formattedAvg = if (title.contains("工时")) {
-            "${String.format("%.1f", avgVal)} h/部"
-        } else {
+        val formattedAvg = if (mockTitle == "总成本矩阵") {
+            "${pieChartSlices.size} 大类"
+        } else if (viewMode.contains("成本") || viewMode.contains("费用") || title.contains("成本") || title.contains("学生餐")) {
             "¥${String.format("%,.0f", avgVal)}"
+        } else if (viewMode.contains("件")) {
+            "${String.format("%.1f", avgVal)} 件"
+        } else if (viewMode.contains("人")) {
+            "${String.format("%.1f", avgVal)} 人"
+        } else {
+            "${String.format("%.1f", avgVal)} h"
         }
+
+        val totalLabel = when {
+            viewMode.contains("成本") || viewMode.contains("费用") || mockTitle == "总成本矩阵" -> "核定总成本"
+            viewMode.contains("件") -> "累计清洗量"
+            viewMode.contains("人") -> "累计出勤人次"
+            viewMode.contains("工时") -> "累计总工时"
+            title.contains("工时") -> "累计核定工时"
+            else -> "核定总额"
+        }
+
+        val avgLabel = when {
+            mockTitle == "总成本矩阵" -> "成本构成"
+            viewMode.contains("成本") || viewMode.contains("费用") -> "平均成本"
+            viewMode.contains("件") -> "人均清洗量"
+            viewMode.contains("人") -> "日均出勤"
+            viewMode.contains("工时") -> "平均工时"
+            title.contains("工时") -> "平均工时"
+            else -> "平均成本/对象"
+        }
+
+        val thirdLabel = if (mockTitle == "总成本矩阵") "成本构成" else "核算对象数"
+        val thirdValue = if (mockTitle == "总成本矩阵") "${pieChartSlices.size} 大类" else "$count 个"
 
         listOf(
             KbiCardItem("核算周期", selectedMonth, Icons.Default.CalendarToday, Orange500 to Color(0xFFFFF7ED)),
-            KbiCardItem("核算对象数", "$count 个", Icons.Default.FilterList, Blue500 to Color(0xFFEFF6FF)),
-            KbiCardItem(if (title.contains("工时")) "累计核定工时" else "核定总额", formattedTotal, Icons.Default.Paid, Emerald500 to Color(0xFFECFDF5)),
-            KbiCardItem(if (title.contains("工时")) "平均工时" else "平均成本/对象", formattedAvg, Icons.Default.TrendingUp, Color(0xFF8B5CF6) to Color(0xFFF5F3FF))
+            KbiCardItem(if (mockTitle == "总成本矩阵") "当前月份" else "核算对象数", if (mockTitle == "总成本矩阵") "${selectedMonth.split("-").last()}月" else "$count 个", Icons.Default.FilterList, Blue500 to Color(0xFFEFF6FF)),
+            KbiCardItem(totalLabel, formattedTotal, Icons.Default.Paid, Emerald500 to Color(0xFFECFDF5)),
+            KbiCardItem(avgLabel, formattedAvg, if (mockTitle == "总成本矩阵") Icons.Default.Layers else Icons.Default.TrendingUp, Color(0xFF8B5CF6) to Color(0xFFF5F3FF))
         )
-    }
-
-    // Dynamic Trend Chart Points
-    val trendChartPoints = remember(days, filteredRows) {
-        days.map { day ->
-            var sum = 0f
-            filteredRows.forEach { row ->
-                val cell = row.daily[day]
-                if (cell != null) {
-                    sum += cell.value.replace(",", "").toFloatOrNull() ?: 0f
-                }
-            }
-            ChartPoint(
-                label = day.split("-").last() + "日",
-                value1 = sum
-            )
-        }
-    }
-
-    // Dynamic Pie Chart Slices
-    val pieChartSlices = remember(filteredRows) {
-        val colors = listOf(Orange500, Blue500, Emerald500, Color(0xFF8B5CF6), Color(0xFFEC4899), Color(0xFF14B8A6), Color(0xFFEAB308), Color(0xFF6366F1))
-        filteredRows.mapIndexed { idx, row ->
-            val totalVal = row.total.replace(",", "").toFloatOrNull() ?: 0f
-            PieSlice(
-                name = row.name.replace("  └ ", "").trim(),
-                value = totalVal,
-                color = colors[idx % colors.size]
-            )
-        }.filter { it.value > 0f }
     }
 
     LazyColumn(
@@ -165,6 +427,47 @@ fun MatrixBase(
                 border = BorderStroke(1.dp, Slate200)
             ) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (mockTitle.isNotEmpty()) {
+                        val modes = when (mockTitle) {
+                            "白猫" -> listOf("清洗件数", "结算成本")
+                            "校园兼职" -> listOf("出勤人数", "劳务费用")
+                            "方便菜肴" -> listOf("加工工时", "核算成本", "出勤人数")
+                            "第三方" -> listOf("派遣工时", "派遣费用", "在岗人数")
+                            else -> emptyList()
+                        }
+                        if (modes.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Slate100, RoundedCornerShape(8.dp))
+                                    .padding(3.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                modes.forEach { mode ->
+                                    val isSelected = viewMode == mode
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .background(
+                                                color = if (isSelected) Color.White else Color.Transparent,
+                                                shape = RoundedCornerShape(6.dp)
+                                            )
+                                            .clickable { viewMode = mode }
+                                            .padding(vertical = 6.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = mode,
+                                            fontSize = 10.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isSelected) Orange600 else Slate600
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -407,7 +710,7 @@ fun MatrixBase(
                 ) {
                     Column(Modifier.padding(12.dp)) {
                         Text(
-                            if (title.contains("成本")) "每日归集核算成本趋势" else "每日核准生产工时走势",
+                            if (mockTitle == "总成本矩阵") "每日总成本趋势" else if (title.contains("成本")) "每日归集核算成本趋势" else "每日核准生产工时走势",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             color = Slate700
@@ -416,8 +719,8 @@ fun MatrixBase(
                         CustomAreaChart(
                             points = trendChartPoints,
                             modifier = Modifier.fillMaxSize(),
-                            color1 = if (title.contains("全口径")) Orange500 else Blue500,
-                            title1 = if (title.contains("成本")) "日常汇总 (¥)" else "核准工时 (h)"
+                            color1 = Orange500,
+                            title1 = if (mockTitle == "总成本矩阵" || title.contains("成本")) "日总成本 (¥)" else "核准工时 (h)"
                         )
                     }
                 }
@@ -430,7 +733,12 @@ fun MatrixBase(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(Modifier.padding(12.dp)) {
-                        Text("部门/细分口径占比统计", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Slate700)
+                        Text(
+                            if (mockTitle == "总成本矩阵") "成本构成占比" else "部门/细分口径占比统计",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate700
+                        )
                         Spacer(Modifier.height(6.dp))
                         CustomPieChart(
                             slices = pieChartSlices,
@@ -460,7 +768,7 @@ fun MatrixBase(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            if (title.contains("学生餐")) "学生餐人工成本矩阵 (双排高密·点击穿透)" else "$title 数据矩阵 (横向滑动)",
+                            if (mockTitle == "总成本矩阵") "总成本日历视图" else if (title.contains("学生餐")) "学生餐人工成本矩阵 (双排高密·点击穿透)" else "$title 数据矩阵 (横向滑动)",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Black,
                             color = Slate800
@@ -477,6 +785,13 @@ fun MatrixBase(
                                     "正常" to Color(0xFFD1FAE5),
                                     "偏高" to Color(0xFFFEF3C7),
                                     "超负荷" to Color(0xFFFEE2E2)
+                                )
+                            } else if (mockTitle == "总成本矩阵") {
+                                listOf(
+                                    "无" to Slate50,
+                                    "低" to Color(0xFFEFF6FF),
+                                    "中" to Color(0xFFE0E7FF),
+                                    "高" to Color(0xFFF3E8FF)
                                 )
                             } else {
                                 listOf(
@@ -514,15 +829,22 @@ fun MatrixBase(
                                         .width(140.dp)
                                         .padding(vertical = 10.dp, horizontal = 12.dp)
                                 ) {
-                                    Text("核算部门 / 项目", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Slate500)
+                                    Text(
+                                        if (mockTitle == "总成本矩阵") "成本分类 / 部门" else "核算部门 / 项目",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Slate500
+                                    )
                                 }
-                                Box(
-                                    Modifier
-                                        .width(70.dp)
-                                        .padding(vertical = 10.dp, horizontal = 12.dp),
-                                    contentAlignment = Alignment.CenterEnd
-                                ) {
-                                    Text("月度累计", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Slate500)
+                                if (mockTitle != "总成本矩阵") {
+                                    Box(
+                                        Modifier
+                                            .width(70.dp)
+                                            .padding(vertical = 10.dp, horizontal = 12.dp),
+                                        contentAlignment = Alignment.CenterEnd
+                                    ) {
+                                        Text("月度累计", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Slate500)
+                                    }
                                 }
                                 days.forEach { day ->
                                     val dateNum = day.split("-").last()
@@ -535,12 +857,22 @@ fun MatrixBase(
                                         Text("${dateNum}日", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Slate500)
                                     }
                                 }
+                                if (mockTitle == "总成本矩阵") {
+                                    Box(
+                                        Modifier
+                                            .width(80.dp)
+                                            .padding(vertical = 10.dp, horizontal = 12.dp),
+                                        contentAlignment = Alignment.CenterEnd
+                                    ) {
+                                        Text("累计汇总", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Slate500)
+                                    }
+                                }
                             }
 
                             Box(Modifier.fillMaxWidth().height(1.dp).background(Slate200))
 
                             // Table Rows Data List
-                            filteredRows.forEach { row ->
+                            processedRows.forEach { row ->
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -563,119 +895,84 @@ fun MatrixBase(
                                         )
                                     }
 
-                                    // Row Grand Total Column
-                                    Box(
-                                        Modifier
-                                            .width(70.dp)
-                                            .padding(vertical = 8.dp, horizontal = 12.dp),
-                                        contentAlignment = Alignment.CenterEnd
-                                    ) {
-                                        val sumVal = row.total.replace(",", "").toDoubleOrNull() ?: 0.0
-                                        Text(
-                                            text = if (title.contains("工时")) "${sumVal.toInt()}h" else "¥${String.format("%,.0f", sumVal)}",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Slate800,
-                                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                                        )
+                                    // Row Grand Total Column (Left placement for standard, Right placement for Total Cost Matrix)
+                                    if (mockTitle != "总成本矩阵") {
+                                        Box(
+                                            Modifier
+                                                .width(70.dp)
+                                                .padding(vertical = 8.dp, horizontal = 12.dp),
+                                            contentAlignment = Alignment.CenterEnd
+                                        ) {
+                                            Text(
+                                                text = row.total,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Slate800,
+                                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                                            )
+                                        }
                                     }
 
                                     // Daily Columns
                                     days.forEach { day ->
                                         val cell = row.daily[day]
-                                        val cellVal = cell?.value?.replace(",", "")?.toFloatOrNull() ?: 0f
-
-                                        // Heatmap color logic matching web frontend specs
-                                        val cellBg = when {
-                                            cellVal == 0f -> Color.Transparent
-                                            title.contains("工时") -> {
-                                                when {
-                                                    cellVal < 4f -> Color(0xFFECFDF5) // normal/low
-                                                    cellVal <= 8f -> Color(0xFFD1FAE5) // standard
-                                                    cellVal <= 10f -> Color(0xFFFEF3C7) // warnings
-                                                    else -> Color(0xFFFEE2E2) // overloads
-                                                }
-                                            }
-                                            title.contains("学生餐") -> {
-                                                when {
-                                                    cellVal < 150f -> Color(0xFFEFF6FF)
-                                                    cellVal <= 300f -> Color(0xFFDBEAFE)
-                                                    cellVal <= 500f -> Color(0xFFC7D2FE)
-                                                    else -> Color(0xFFF3E8FF)
-                                                }
-                                            }
-                                            else -> { // Total cost matrix colors
-                                                when {
-                                                    cellVal < 500f -> Color(0xFFEFF6FF)
-                                                    cellVal <= 1500f -> Color(0xFFDBEAFE)
-                                                    cellVal <= 3000f -> Color(0xFFC7D2FE)
-                                                    else -> Color(0xFFF3E8FF)
-                                                }
-                                            }
-                                        }
-
-                                        val textAccent = when {
-                                            cellVal == 0f -> Slate300
-                                            title.contains("工时") -> {
-                                                when {
-                                                    cellVal <= 8f -> Emerald700
-                                                    cellVal <= 10f -> Orange600
-                                                    else -> Rose600
-                                                }
-                                            }
-                                            title.contains("学生餐") -> {
-                                                when {
-                                                    cellVal <= 300f -> Blue700
-                                                    cellVal <= 500f -> Color(0xFF4F46E5)
-                                                    else -> Color(0xFF7C3AED)
-                                                }
-                                            }
-                                            else -> {
-                                                when {
-                                                    cellVal <= 1500f -> Blue700
-                                                    cellVal <= 3000f -> Color(0xFF4F46E5)
-                                                    else -> Color(0xFF7C3AED)
-                                                }
-                                            }
-                                        }
+                                        val disp = getDisplayCell(row.name, day, cell, mockTitle, viewMode, title.contains("工时"))
 
                                         Box(
                                             modifier = Modifier
                                                 .width(52.dp)
                                                 .height(44.dp)
-                                                .background(cellBg)
+                                                .background(disp.bg)
                                                 .border(0.3.dp, Slate100)
-                                                .clickable(enabled = cellVal > 0f) {
+                                                .clickable(enabled = disp.numericValue > 0f) {
                                                     // Trigger drilldown popup dialog
                                                     selectedDrilldownCell = DrilldownCellInfo(
                                                         deptName = row.name,
                                                         date = day,
-                                                        value = cellVal,
+                                                        value = disp.numericValue,
                                                         subValue = cell?.subValue ?: ""
                                                     )
                                                 },
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            if (cellVal > 0f) {
+                                            if (disp.numericValue > 0f) {
                                                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                                                     Text(
-                                                        if (title.contains("工时")) "${cellVal.toInt()}h" else "¥${cellVal.toInt()}",
+                                                        disp.mainText,
                                                         fontSize = 9.5.sp,
-                                                        color = textAccent,
+                                                        color = disp.textAccent,
                                                         fontWeight = FontWeight.Bold,
                                                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                                                     )
-                                                    // High-density secondary line
-                                                    val subLabel = if (title.contains("工时")) {
-                                                        "${(cellVal / 8.0f).toInt() + 1}人"
-                                                    } else {
-                                                        "${(cellVal / 45.0f).toInt() + 1}h"
+                                                    if (disp.subText.isNotEmpty()) {
+                                                        Text(
+                                                            disp.subText,
+                                                            fontSize = 7.sp,
+                                                            color = disp.textAccent.copy(alpha = 0.6f)
+                                                        )
                                                     }
-                                                    Text(subLabel, fontSize = 7.sp, color = textAccent.copy(alpha = 0.6f))
                                                 }
                                             } else {
                                                 Text("-", fontSize = 10.sp, color = Slate300)
                                             }
+                                        }
+                                    }
+
+                                    // Row Grand Total Column (Right placement for Total Cost Matrix)
+                                    if (mockTitle == "总成本矩阵") {
+                                        Box(
+                                            Modifier
+                                                .width(80.dp)
+                                                .padding(vertical = 8.dp, horizontal = 12.dp),
+                                            contentAlignment = Alignment.CenterEnd
+                                        ) {
+                                            Text(
+                                                text = row.total,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Slate800,
+                                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                                            )
                                         }
                                     }
                                 }
@@ -848,11 +1145,47 @@ fun MatrixBase(
                             }
                             Box(Modifier.fillMaxWidth().height(1.dp).background(Slate200))
                             
-                            val mockEmployees = listOf(
-                                Triple("李强", "小时工", 8.0f),
-                                Triple("王明", "自有员工", 8.0f),
-                                Triple("张军", "第三方派遣", 4.0f)
-                            )
+                            val rowName = info.deptName
+                            val isDepartment = rowName.contains("部门") || rowName.contains("班组") || rowName.contains("科室") || rowName.contains("中心") || rowName.contains("部") || rowName.contains("厂") || rowName.contains("学校") || rowName.contains("客服") || rowName.contains("分类")
+                            
+                            val mockEmployees = if (!isDepartment && rowName.trim().isNotEmpty() && rowName.trim().length <= 4 && !rowName.contains("└")) {
+                                listOf(
+                                    Triple(rowName.trim(), "自有员工", info.value)
+                                )
+                            } else {
+                                val cleanDeptName = rowName.replace("  └ ", "").trim()
+                                val seed = cleanDeptName.hashCode() + info.date.hashCode()
+                                val random = java.util.Random(seed.toLong())
+                                val firstNames = listOf("张", "李", "王", "刘", "陈", "杨", "赵", "黄", "周", "吴", "徐", "孙")
+                                val lastNames = listOf("伟", "芳", "娜", "秀英", "敏", "静", "丽", "强", "磊", "洋", "艳", "勇", "军", "杰", "超")
+                                
+                                val totalValue = info.value
+                                val peopleCount = when {
+                                    totalValue <= 8.0f -> 1
+                                    totalValue <= 16.0f -> 2
+                                    else -> 3
+                                }
+                                
+                                List(peopleCount) { i ->
+                                    val fName = firstNames[random.nextInt(firstNames.size)]
+                                    val lName = lastNames[random.nextInt(lastNames.size)]
+                                    val empName = fName + lName
+                                    val empType = when (random.nextInt(3)) {
+                                        0 -> "自有员工"
+                                        1 -> "小时工"
+                                        else -> "第三方派遣"
+                                    }
+                                    val hours = if (peopleCount == 1) totalValue else {
+                                        if (i == peopleCount - 1) {
+                                            totalValue - (8.0f * (peopleCount - 1))
+                                        } else {
+                                            8.0f
+                                        }
+                                    }
+                                    val finalHours = if (hours <= 0f) 4.0f else hours
+                                    Triple(empName, empType, finalHours)
+                                }
+                            }
                             mockEmployees.forEach { (name, type, hrs) ->
                                 Row(
                                     modifier = Modifier
@@ -863,7 +1196,7 @@ fun MatrixBase(
                                 ) {
                                     Text(name, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = Slate800, modifier = Modifier.weight(1f))
                                     Text(type, fontSize = 9.sp, color = Slate600, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                                    Text("${hrs}h", fontSize = 9.5.sp, color = Slate600, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                                    Text("${hrs.toInt()}h", fontSize = 9.5.sp, color = Slate600, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                                     Text("¥${(hrs * 32).toInt()}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Orange600, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, modifier = Modifier.weight(1f), textAlign = TextAlign.End)
                                 }
                                 Box(Modifier.fillMaxWidth().height(0.5.dp).background(Slate100))
@@ -895,11 +1228,20 @@ data class MatrixRowData(
     val name: String,
     val total: String,
     val isHeader: Boolean = false,
-    val daily: Map<String, MatrixCellData> = emptyMap()
+    val daily: Map<String, MatrixCellData> = emptyMap(),
+    val children: List<com.szxianyu.executive.data.models.MatrixRow>? = null
 )
 
 data class MatrixCellData(
     val value: String,
     val subValue: String? = null,
-    val isAbnormal: Boolean = false
+    val isAbnormal: Boolean = false,
+    val regular_hours: Double? = null,
+    val hourly_rate: Double? = null,
+    val overtime_hours: Double? = null,
+    val overtime_hourly_rate: Double? = null,
+    val is_fallback_rate: Boolean? = null,
+    val people: Int? = null,
+    val cost: Double? = null,
+    val hours: Double? = null
 )
