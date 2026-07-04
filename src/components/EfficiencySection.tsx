@@ -52,7 +52,9 @@ export default function EfficiencySection({ data }: { data: EfficiencyDashboardD
       <div className={`grid grid-cols-1 ${isFoldable ? "gap-3" : "lg:grid-cols-2 gap-4"}`}>
         {/* Trend */}
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
-          <h3 className="text-[11px] font-bold text-slate-800 mb-3 flex items-center gap-1.5 border-l-2 border-orange-500 pl-1.5">经营效率趋势 (人均毛利与支撑成本率)</h3>
+          <h3 className={`text-[11px] font-bold text-slate-800 mb-3 flex items-center gap-1.5 border-l-2 border-orange-500 pl-1.5 ${isFoldable ? "truncate" : ""}`} title="经营效率趋势 (人均毛利与支撑成本率)">
+            {isFoldable ? "经营效率趋势" : "经营效率趋势 (人均毛利与支撑成本率)"}
+          </h3>
           <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={trendData} margin={{ top: 5, right: 0, left: -25, bottom: 0 }}>
@@ -70,7 +72,9 @@ export default function EfficiencySection({ data }: { data: EfficiencyDashboardD
 
         {/* Ranking */}
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex flex-col">
-          <h3 className="text-[11px] font-bold text-slate-800 mb-3 flex items-center gap-1.5 border-l-2 border-orange-500 pl-1.5">业务部门薪资毛利效率排名</h3>
+          <h3 className={`text-[11px] font-bold text-slate-800 mb-3 flex items-center gap-1.5 border-l-2 border-orange-500 pl-1.5 ${isFoldable ? "truncate" : ""}`} title="业务部门薪资毛利效率排名">
+            {isFoldable ? "业务薪资毛利效率排名" : "业务部门薪资毛利效率排名"}
+          </h3>
           <div className="flex-1">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={businessRank} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
@@ -88,12 +92,14 @@ export default function EfficiencySection({ data }: { data: EfficiencyDashboardD
       
       {/* Support Dept Heatmap */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
-        <h3 className="text-[11px] font-bold text-slate-800 mb-3 flex items-center gap-1.5 border-l-2 border-orange-500 pl-1.5">支持部门支撑负荷与时效对比</h3>
+        <h3 className={`text-[11px] font-bold text-slate-800 mb-3 flex items-center gap-1.5 border-l-2 border-orange-500 pl-1.5 ${isFoldable ? "truncate" : ""}`} title="支持部门支撑负荷与时效对比">支持部门支撑负荷与时效对比</h3>
         <div className="overflow-x-auto text-[10px] custom-scrollbar">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 text-slate-500 border-b border-slate-200">
-                <th className="p-2 font-bold">职能/支持部门</th>
+                <th className={`p-2 font-bold ${isFoldable ? "min-w-[100px]" : ""}`}>
+                  <span className="truncate block" title="职能/支持部门">{isFoldable ? "支持部门" : "职能/支持部门"}</span>
+                </th>
                 <th className="p-2 font-bold">支撑人工成本</th>
                 <th className="p-2 font-bold">关联业务价值</th>
                 <th className="p-2 font-bold">时效比 (Ratio)</th>

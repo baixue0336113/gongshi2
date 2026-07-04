@@ -112,11 +112,13 @@ export default function CostCenterSection({ data }: { data: CostCenterData }) {
       {/* Department Breakdown */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider">部门成本明细列表</h3>
+          <h3 className={`text-[11px] font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider ${isFoldable ? "truncate" : ""}`} title="部门成本明细列表">部门成本明细列表</h3>
           <div className="flex items-center gap-4 text-[11px]">
-            <div className="flex items-center gap-1.5 text-slate-500">
-              <Clock size={12} /> <span className="font-mono">总工时: {data.totals.hours.toLocaleString()}h</span>
-            </div>
+            {!isFoldable && (
+              <div className="flex items-center gap-1.5 text-slate-500">
+                <Clock size={12} /> <span className="font-mono">总工时: {data.totals.hours.toLocaleString()}h</span>
+              </div>
+            )}
             <div className="flex items-center gap-1.5 text-orange-600 font-bold">
               <DollarSign size={12} /> <span className="font-mono">总成本: ¥{data.totals.labor_cost.toLocaleString()}</span>
             </div>
@@ -126,7 +128,9 @@ export default function CostCenterSection({ data }: { data: CostCenterData }) {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 text-slate-500 border-b border-slate-200">
-                <th className="p-3 font-bold">核算部门 / 车间</th>
+                <th className={`p-3 font-bold ${isFoldable ? "min-w-[100px]" : "min-w-[120px]"}`}>
+                  <span className="truncate block" title="核算部门 / 车间">{isFoldable ? "核算部门" : "核算部门 / 车间"}</span>
+                </th>
                 <th className="p-3 font-bold text-right">核准工时 (h)</th>
                 <th className="p-3 font-bold text-right">单位工时成本</th>
                 <th className="p-3 font-bold text-right">成本占比</th>
