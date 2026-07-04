@@ -100,6 +100,10 @@ export interface MatrixDailyData {
   qty?: number;
   abnormal?: boolean;
   is_fallback_rate?: boolean;
+  regular_hours?: number;
+  overtime_hours?: number;
+  hourly_rate?: number;
+  overtime_hourly_rate?: number;
 }
 
 export interface MatrixRow {
