@@ -1,4 +1,4 @@
-package com.example.xianyu.ui.theme
+package com.szxianyu.executive.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

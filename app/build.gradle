@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace 'com.example.xianyu'
+    namespace 'com.szxianyu.executive'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.example.xianyu"
+        applicationId "com.szxianyu.executive"
         minSdk 26
         targetSdk 34
         versionCode 1

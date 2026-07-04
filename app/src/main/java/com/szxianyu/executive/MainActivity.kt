@@ -1,4 +1,4 @@
-package com.example.xianyu
+package com.szxianyu.executive
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -21,7 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.xianyu.ui.theme.*
+import com.szxianyu.executive.ui.theme.*
 
 enum class Screen(val title: String, val icon: ImageVector) {
     Overview("1. 经营总览", Icons.Default.Dashboard),
@@ -42,7 +42,22 @@ enum class Screen(val title: String, val icon: ImageVector) {
     ThirdParty("16. 第三方工时/成本", Icons.Default.Layers)
 }
 
+import com.szxianyu.executive.data.XianyuRepository
+import com.szxianyu.executive.data.api.XianyuApiService
+import com.szxianyu.executive.ui.*
+import com.szxianyu.executive.ui.theme.*
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+
 class MainActivity : ComponentActivity() {
+    private val retrofit = Retrofit.Builder()
+        .baseUrl("https://ais-dev-sezzag3syker4gzyr6nhpp-670536860579.asia-east1.run.app") // Placeholder, should be dynamic if needed
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+    
+    private val apiService = retrofit.create(XianyuApiService::class.java)
+    private val repository = XianyuRepository(apiService)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -52,14 +67,18 @@ class MainActivity : ComponentActivity() {
                 var isSidebarCollapsed by remember { mutableStateOf(false) }
 
                 if (token == null) {
-                    LoginScreen { t, user -> token = t }
+                    LoginScreen(apiService) { t, user -> token = t }
                 } else {
                     MainScaffold(
                         currentScreen = currentScreen,
-                        onScreenSelected = { currentScreen = it },
+                        onScreenSelected = { 
+                            currentScreen = it 
+                            // Foldable internal screen auto-collapse logic could go here
+                        },
                         isCollapsed = isSidebarCollapsed,
                         onToggleSidebar = { isSidebarCollapsed = !isSidebarCollapsed },
-                        onLogout = { token = null }
+                        onLogout = { token = null },
+                        repo = repository
                     )
                 }
             }
@@ -73,7 +92,8 @@ fun MainScaffold(
     onScreenSelected: (Screen) -> Unit,
     isCollapsed: Boolean,
     onToggleSidebar: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    repo: XianyuRepository
 ) {
     Row(modifier = Modifier.fillMaxSize()) {
         // Sidebar
@@ -94,9 +114,21 @@ fun MainScaffold(
             Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                 when (currentScreen) {
                     Screen.Overview -> OverviewScreen()
+                    Screen.WorkMatrix -> WorkMatrixScreen(repo)
+                    Screen.TotalCostMatrix -> TotalCostMatrixScreen(repo)
+                    Screen.StudentMealCost -> StudentMealCostScreen(repo)
+                    Screen.Department -> DepartmentDetailScreen()
+                    Screen.Employee -> EmployeePortraitScreen()
+                    Screen.Support -> SupportHoursScreen()
                     Screen.Efficiency -> EfficiencyScreen()
+                    Screen.CostCenter -> CostCenterScreen()
+                    Screen.PositionCost -> PositionCostScreen()
                     Screen.Risk -> RiskControlScreen()
-                    else -> PlaceholderScreen(currentScreen.title)
+                    Screen.Strategic -> StrategicTrackingScreen()
+                    Screen.Baimao -> BaimaoScreen(repo)
+                    Screen.Campus -> CampusScreen(repo)
+                    Screen.Convenience -> ConvenienceScreen(repo)
+                    Screen.ThirdParty -> ThirdPartyScreen(repo)
                 }
             }
         }

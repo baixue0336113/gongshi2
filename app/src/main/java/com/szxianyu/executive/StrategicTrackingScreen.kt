@@ -1,4 +1,4 @@
-package com.example.xianyu
+package com.szxianyu.executive
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -17,7 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.xianyu.ui.theme.*
+import com.szxianyu.executive.ui.theme.*
 
 @Composable
 fun StrategicTrackingScreen() {

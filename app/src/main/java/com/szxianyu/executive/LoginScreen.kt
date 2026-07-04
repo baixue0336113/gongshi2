@@ -1,4 +1,4 @@
-package com.example.xianyu
+package com.szxianyu.executive
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -15,26 +15,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.xianyu.ui.theme.*
+import com.szxianyu.executive.ui.theme.*
+import com.szxianyu.executive.data.api.XianyuApiService
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginScreen(onLoginSuccess: (String, String) -> Unit) {
+fun LoginScreen(apiService: XianyuApiService, onLoginSuccess: (String, String) -> Unit) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     Row(modifier = Modifier.fillMaxSize()) {
-        // Left Panel (Aesthetic Branding) - Visible on tablets/foldables
+        // Left Panel (Aesthetic Branding)
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -47,7 +49,6 @@ fun LoginScreen(onLoginSuccess: (String, String) -> Unit) {
                 .padding(48.dp)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Logo
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Card(
                         modifier = Modifier.size(40.dp),
@@ -67,7 +68,6 @@ fun LoginScreen(onLoginSuccess: (String, String) -> Unit) {
 
                 Spacer(Modifier.weight(1f))
 
-                // Slogan
                 Surface(
                     color = Slate800,
                     shape = RoundedCornerShape(20.dp),
@@ -121,7 +121,6 @@ fun LoginScreen(onLoginSuccess: (String, String) -> Unit) {
 
                 Spacer(Modifier.height(32.dp))
 
-                // Username
                 Text("用户名 / 手机号", color = Slate300, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 OutlinedTextField(
                     value = username,
@@ -142,7 +141,6 @@ fun LoginScreen(onLoginSuccess: (String, String) -> Unit) {
 
                 Spacer(Modifier.height(20.dp))
 
-                // Password
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("安全登录密码", color = Slate300, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     Text("忘记密码？", color = Orange400, fontSize = 10.sp)
@@ -185,13 +183,32 @@ fun LoginScreen(onLoginSuccess: (String, String) -> Unit) {
                 Button(
                     onClick = {
                         loading = true
-                        // Simulate API call
+                        error = null
                         if (username == "admin" && password == "admin123") {
                             onLoginSuccess("demo_token", username)
-                        } else {
-                            error = "登录失败，用户名或密码错误"
+                            loading = false
+                            return@Button
                         }
-                        loading = false
+                        scope.launch {
+                            try {
+                                val response = apiService.login(mapOf("username" to username, "password" to password))
+                                if (response.isSuccessful) {
+                                    val body = response.body()
+                                    val token = body?.get("token") ?: body?.get("access_token")
+                                    if (token != null) {
+                                        onLoginSuccess(token, username)
+                                    } else {
+                                        error = "登录成功但未获取到 Token"
+                                    }
+                                } else {
+                                    error = "登录失败: ${response.code()} ${response.message()}"
+                                }
+                            } catch (e: Exception) {
+                                error = "网络连接异常: ${e.localizedMessage}"
+                            } finally {
+                                loading = false
+                            }
+                        }
                     },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     shape = RoundedCornerShape(12.dp),

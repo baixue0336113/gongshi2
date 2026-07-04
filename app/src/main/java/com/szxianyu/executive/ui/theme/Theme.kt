@@ -1,4 +1,4 @@
-package com.example.xianyu.ui.theme
+package com.szxianyu.executive.ui.theme
 
 import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme

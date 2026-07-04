@@ -15,7 +15,7 @@
         android:theme="@style/Theme.Xianyu"
         tools:targetApi="31">
         <activity
-            android:name=".MainActivity"
+            android:name="com.szxianyu.executive.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Xianyu"
             android:screenOrientation="landscape">

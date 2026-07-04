@@ -1,4 +1,4 @@
-package com.example.xianyu.data.models
+package com.szxianyu.executive.data.models
 
 data class SummaryData(
     val total_staff: Int,
