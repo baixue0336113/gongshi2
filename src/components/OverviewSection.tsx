@@ -86,7 +86,10 @@ export default function OverviewSection({
     if (key === "labor_cost") {
       return `¥ ${val.toLocaleString()}`;
     }
-    if (key === "unit_hour_output_value" || key === "unit_hour_labor_cost") {
+    if (key === "unit_hour_output_value") {
+      return `¥ ${val} /小时`;
+    }
+    if (key === "unit_hour_labor_cost") {
       return `¥ ${val} /h`;
     }
     if (key === "avg_sales_per_person") {
@@ -131,10 +134,10 @@ export default function OverviewSection({
     {
       key: "attendance_rate",
       title: "所选日期出勤率",
-      formula: "worked_employee / employee_count",
+      formula: "worked_employee_count / employee_count",
       value: formatKpiValue("attendance_rate", summary.attendance_rate),
       compare: summary.attendance_rate_compare || 0,
-      desc: "日实际在岗出勤占比"
+      desc: "日实际在岗出勤人员占比"
     },
     {
       key: "production_hours",
@@ -142,15 +145,15 @@ export default function OverviewSection({
       formula: "total_work_hours",
       value: formatKpiValue("production_hours", summary.production_hours),
       compare: summary.production_hours_compare || 0,
-      desc: "双级审核确认有效工时"
+      desc: "双级审核确认有效制造/清洗工时"
     },
     {
       key: "avg_hours",
       title: "人均工时",
-      formula: "total_hours / worked_employee",
+      formula: "total_work_hours / worked_employee_count",
       value: formatKpiValue("avg_hours", summary.avg_hours),
       compare: summary.avg_hours_compare || 0,
-      desc: "当日人均实核工作长度"
+      desc: "当日在岗人员人均生产劳动时长"
     },
     {
       key: "overtime_staff",
@@ -158,7 +161,7 @@ export default function OverviewSection({
       formula: "overtime_employee_count",
       value: formatKpiValue("overtime_staff", summary.overtime_staff),
       compare: summary.overtime_staff_compare || 0,
-      desc: "日工作时长超限报警人次"
+      desc: "单日工作时长突破合规警戒线人数"
     },
     {
       key: "unit_hour_output_value",
@@ -166,15 +169,15 @@ export default function OverviewSection({
       formula: "sales / total_work_hours",
       value: formatKpiValue("unit_hour_output_value", summary.unit_hour_output_value),
       compare: summary.unit_hour_output_value_compare || 0,
-      desc: "当日折算总产值 / 生产工时"
+      desc: "平均每核定有效工时产出的销售总额"
     },
     {
       key: "avg_sales_per_person",
       title: "人均销售额",
-      formula: "sales / worked_employee",
+      formula: "sales / worked_employee_count",
       value: formatKpiValue("avg_sales_per_person", summary.avg_sales_per_person),
       compare: summary.avg_sales_per_person_compare || 0,
-      desc: "折算产值 / 实际在岗出勤人数"
+      desc: "当日实际出勤人员平均折算产值贡献"
     },
     {
       key: "labor_cost",
@@ -182,7 +185,7 @@ export default function OverviewSection({
       formula: "labor_cost",
       value: formatKpiValue("labor_cost", summary.labor_cost),
       compare: summary.labor_cost_compare || 0,
-      desc: "确认工时 × 协议核算时薪"
+      desc: "累计确认工时 × 岗位劳务协议时薪"
     },
     {
       key: "labor_cost_rate",
@@ -190,7 +193,7 @@ export default function OverviewSection({
       formula: "labor_cost / sales",
       value: formatKpiValue("labor_cost_rate", summary.labor_cost_rate),
       compare: summary.labor_cost_rate_compare || 0,
-      desc: "人工成本占当日销售产出比"
+      desc: "当日结算人工成本占总产值营收比例"
     },
     {
       key: "unit_hour_labor_cost",
@@ -198,15 +201,15 @@ export default function OverviewSection({
       formula: "labor_cost / total_work_hours",
       value: formatKpiValue("unit_hour_labor_cost", summary.unit_hour_labor_cost),
       compare: summary.unit_hour_labor_cost_compare || 0,
-      desc: "工时总成本 / 确认生产总工时"
+      desc: "分摊后每生产工时所承载的实际人工成本"
     },
     {
       key: "coverage_rate",
-      title: "工时覆盖率",
-      formula: "performance_hours / total_hours",
+      title: "考勤覆盖率",
+      formula: "total_work_hours / standard_work_hours",
       value: formatKpiValue("coverage_rate", summary.coverage_rate),
       compare: summary.coverage_rate_compare || 0,
-      desc: "关联工时产出绩效考核占比"
+      desc: "实际确认生产工时对标准额定工时的覆盖比例"
     }
   ];
 
