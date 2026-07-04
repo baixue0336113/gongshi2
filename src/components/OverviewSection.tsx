@@ -233,7 +233,7 @@ export default function OverviewSection({
     cockpitInsights.push({
       type: "danger",
       title: "生产工时过载红线警报",
-      content: `${dangerDept.department_name}今日生产工时达 ${dangerDept.total_hours}h，异常警示记录较多，已突破合规阈值。建议${dangerDept.manager ? `负责人【${dangerDept.manager}】` : "相关人员"}立即介入核对排班。`,
+      content: `${dangerDept.department_name}今日生产工时达 ${dangerDept.total_hours}h，异常警示记录较多，已突破合规阈值。建议${dangerDept.manager ? `负责人【${dangerDept.manager}】` : ""}立即介入核对排班。`,
       color: "border-l-4 border-rose-500 bg-rose-50/50"
     });
   } else if (warningDept) {
@@ -321,7 +321,7 @@ export default function OverviewSection({
       status,
       desc: dept.rule_status === "danger" 
         ? `异常工时 ${dept.overtime_hours}h${dept.manager ? `，主管: ${dept.manager}` : ""}` 
-        : `运行平稳，人均 ${dept.avg_hours}h`,
+        : `人均工时 ${dept.avg_hours}h`,
       statusColor
     };
   });
