@@ -1,6 +1,6 @@
 {
   "name": "鲜誉运营驾驶舱",
-  "description": "鲜誉集团运营驾驶舱，集成工时、成本、人员效能、支援工时、月度核算（白猫、校园、方便菜、第三方）与安全驾驶（风险管控、管理追踪）等多维核算核心指标，支持数据穿透诊断。",
+  "description": "鲜誉集团运营驾驶舱 (Updated with Build Fixes)",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
