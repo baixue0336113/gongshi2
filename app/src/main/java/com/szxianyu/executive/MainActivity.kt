@@ -28,23 +28,23 @@ import com.szxianyu.executive.ui.*
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-enum class Screen(val title: String, val icon: ImageVector) {
-    Overview("1. 经营总览", Icons.Default.Dashboard),
-    WorkMatrix("2. 工时矩阵", Icons.Default.GridOn),
-    TotalCostMatrix("3. 总成本矩阵", Icons.Default.Calculate),
-    StudentMealCost("4. 学生餐成本", Icons.Default.AttachMoney),
-    Department("5. 部门穿透", Icons.Default.Groups),
-    Employee("6. 员工画像", Icons.Default.Badge),
-    Support("7. 支援工时", Icons.Default.Sync),
-    Efficiency("8. 经营效率", Icons.Default.TrendingUp),
-    CostCenter("9. 成本中心", Icons.Default.PieChart),
-    PositionCost("10. 职位成本", Icons.Default.Work),
-    Risk("11. 风险管控", Icons.Default.Warning),
-    Strategic("12. 管理追踪", Icons.Default.ListAlt),
-    Baimao("13. 白猫工时/成本", Icons.Default.Star),
-    Campus("14. 校园兼职成本", Icons.Default.School),
-    Convenience("15. 方便菜肴工时", Icons.Default.AutoAwesome),
-    ThirdParty("16. 第三方工时/成本", Icons.Default.Layers)
+enum class Screen(val title: String, val icon: ImageVector, val category: String) {
+    Overview("1. 经营总览", Icons.Default.Dashboard, "核心看板"),
+    WorkMatrix("2. 工时矩阵", Icons.Default.GridOn, "核心看板"),
+    TotalCostMatrix("3. 总成本矩阵", Icons.Default.Calculate, "核心看板"),
+    StudentMealCost("4. 学生餐成本", Icons.Default.AttachMoney, "核心看板"),
+    Department("5. 部门穿透", Icons.Default.Groups, "穿透诊断"),
+    Employee("6. 员工画像", Icons.Default.Badge, "穿透诊断"),
+    Support("7. 支援工时", Icons.Default.Sync, "专项分析"),
+    Efficiency("8. 经营效率", Icons.Default.TrendingUp, "专项分析"),
+    CostCenter("9. 成本中心", Icons.Default.PieChart, "专项分析"),
+    PositionCost("10. 职位成本", Icons.Default.Work, "专项分析"),
+    Risk("11. 风险管控", Icons.Default.Warning, "安全驾驶"),
+    Strategic("12. 管理追踪", Icons.Default.ListAlt, "安全驾驶"),
+    Baimao("13. 白猫工时/成本", Icons.Default.Star, "月度核算"),
+    Campus("14. 校园兼职成本", Icons.Default.School, "月度核算"),
+    Convenience("15. 方便菜肴工时", Icons.Default.AutoAwesome, "月度核算"),
+    ThirdParty("16. 第三方工时/成本", Icons.Default.Layers, "月度核算")
 }
 
 class MainActivity : ComponentActivity() {
@@ -63,6 +63,7 @@ class MainActivity : ComponentActivity() {
                 var token by remember { mutableStateOf<String?>(null) }
                 var currentScreen by remember { mutableStateOf(Screen.Overview) }
                 var isSidebarCollapsed by remember { mutableStateOf(false) }
+                var selectedDate by remember { mutableStateOf("2026-07-02") }
 
                 if (token == null) {
                     LoginScreen(apiService) { t, user -> token = t }
@@ -71,13 +72,14 @@ class MainActivity : ComponentActivity() {
                         currentScreen = currentScreen,
                         onScreenSelected = { 
                             currentScreen = it 
-                            // Foldable internal screen auto-collapse logic could go here
                         },
                         isCollapsed = isSidebarCollapsed,
                         onToggleSidebar = { isSidebarCollapsed = !isSidebarCollapsed },
                         onLogout = { token = null },
                         repo = repository,
-                        token = token!!
+                        token = token!!,
+                        selectedDate = selectedDate,
+                        onDateChange = { selectedDate = it }
                     )
                 }
             }
@@ -93,7 +95,9 @@ fun MainScaffold(
     onToggleSidebar: () -> Unit,
     onLogout: () -> Unit,
     repo: XianyuRepository,
-    token: String
+    token: String,
+    selectedDate: String,
+    onDateChange: (String) -> Unit
 ) {
     Row(modifier = Modifier.fillMaxSize()) {
         // Sidebar
@@ -108,12 +112,16 @@ fun MainScaffold(
         // Main Content Area
         Column(modifier = Modifier.fillMaxSize().background(Slate50)) {
             // Top Bar
-            TopBar(currentScreen)
+            TopBar(
+                screen = currentScreen,
+                selectedDate = selectedDate,
+                onDateChange = onDateChange
+            )
 
             // Content
             Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                 when (currentScreen) {
-                    Screen.Overview -> OverviewScreen(repo, token)
+                    Screen.Overview -> OverviewScreen(repo, token, selectedDate)
                     Screen.WorkMatrix -> WorkMatrixScreen(repo, token)
                     Screen.TotalCostMatrix -> TotalCostMatrixScreen(repo, token)
                     Screen.StudentMealCost -> StudentMealCostScreen(repo, token)
@@ -143,6 +151,8 @@ fun Sidebar(
     onToggle: () -> Unit,
     onLogout: () -> Unit
 ) {
+    val categories = listOf("核心看板", "穿透诊断", "专项分析", "安全驾驶", "月度核算")
+
     Surface(
         modifier = Modifier
             .width(if (isCollapsed) 72.dp else 260.dp)
@@ -189,39 +199,55 @@ fun Sidebar(
 
             Divider(color = Slate800)
 
-            // Menu Items
+            // Grouped Category Menu Items
             LazyColumn(
                 modifier = Modifier.weight(1f).padding(8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                items(Screen.values()) { screen ->
-                    val isSelected = selectedScreen == screen
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp)
-                            .clickable { onScreenSelected(screen) },
-                        color = if (isSelected) Orange500 else Color.Transparent,
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 12.dp)
-                        ) {
-                            Icon(
-                                screen.icon,
-                                contentDescription = null,
-                                tint = if (isSelected) Slate950 else Slate400,
-                                modifier = Modifier.size(18.dp)
+                categories.forEach { category ->
+                    val screensInCategory = Screen.values().filter { it.category == category }
+                    
+                    if (!isCollapsed) {
+                        item {
+                            Text(
+                                text = category,
+                                color = Orange400,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp)
                             )
-                            if (!isCollapsed) {
-                                Spacer(Modifier.width(12.dp))
-                                Text(
-                                    screen.title,
-                                    color = if (isSelected) Slate950 else Slate300,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        }
+                    }
+                    
+                    items(screensInCategory) { screen ->
+                        val isSelected = selectedScreen == screen
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(40.dp)
+                                .clickable { onScreenSelected(screen) },
+                            color = if (isSelected) Orange500 else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 12.dp)
+                            ) {
+                                Icon(
+                                    screen.icon,
+                                    contentDescription = null,
+                                    tint = if (isSelected) Slate950 else Slate400,
+                                    modifier = Modifier.size(16.dp)
                                 )
+                                if (!isCollapsed) {
+                                    Spacer(Modifier.width(12.dp))
+                                    Text(
+                                        screen.title,
+                                        color = if (isSelected) Slate950 else Slate300,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                }
                             }
                         }
                     }
@@ -265,7 +291,14 @@ fun Sidebar(
 }
 
 @Composable
-fun TopBar(screen: Screen) {
+fun TopBar(
+    screen: Screen,
+    selectedDate: String,
+    onDateChange: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val availableDates = listOf("2026-07-02", "2026-07-01", "2026-06-30", "2026-06-15", "2026-06-01", "2026-05-15")
+
     Surface(
         modifier = Modifier.fillMaxWidth().height(64.dp),
         color = Color.White,
@@ -278,28 +311,49 @@ fun TopBar(screen: Screen) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    screen.title.substring(3),
+                    screen.title.substring(screen.title.indexOf(" ") + 1),
                     color = Slate900,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
+                    fontSize = 16.sp
                 )
                 Spacer(Modifier.width(16.dp))
                 VerticalDivider(modifier = Modifier.height(16.dp).padding(horizontal = 4.dp), color = Slate200)
                 
-                Surface(
-                    color = Slate50,
-                    shape = RoundedCornerShape(8.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                Box {
+                    Surface(
+                        color = Slate50,
+                        shape = RoundedCornerShape(8.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                        modifier = Modifier.clickable { expanded = true }
                     ) {
-                        Icon(Icons.Default.CalendarToday, contentDescription = null, tint = Orange500, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("审计工时日期:", color = Slate600, fontSize = 11.sp)
-                        Spacer(Modifier.width(4.dp))
-                        Text("2026-07-02", color = Slate900, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.CalendarToday, contentDescription = null, tint = Orange500, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("审计工时日期:", color = Slate600, fontSize = 11.sp)
+                            Spacer(Modifier.width(4.dp))
+                            Text(selectedDate, color = Slate900, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.width(4.dp))
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Slate500, modifier = Modifier.size(14.dp))
+                        }
+                    }
+
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false },
+                        modifier = Modifier.background(Color.White)
+                    ) {
+                        availableDates.forEach { date ->
+                            DropdownMenuItem(
+                                text = { Text(date, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate800) },
+                                onClick = {
+                                    onDateChange(date)
+                                    expanded = false
+                                }
+                            )
+                        }
                     }
                 }
             }

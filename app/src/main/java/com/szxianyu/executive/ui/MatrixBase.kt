@@ -18,23 +18,81 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.szxianyu.executive.ui.theme.*
 
+fun shiftMonth(current: String, offset: Int): String {
+    val parts = current.split("-")
+    if (parts.size != 2) return current
+    val year = parts[0].toIntOrNull() ?: 2026
+    val month = parts[1].toIntOrNull() ?: 7
+    var newMonth = month + offset
+    var newYear = year
+    if (newMonth < 1) {
+        newMonth = 12
+        newYear -= 1
+    } else if (newMonth > 12) {
+        newMonth = 1
+        newYear += 1
+    }
+    return String.format("%d-%02d", newYear, newMonth)
+}
+
 @Composable
 fun MatrixBase(
     title: String,
     days: List<String>,
     rows: List<MatrixRowData>,
+    selectedMonth: String,
     kbiSummary: List<Triple<String, String, Color>> = emptyList(),
     onMonthChange: (String) -> Unit
 ) {
-    var selectedMonth by remember { mutableStateOf("2026-07") }
     val horizontalScrollState = rememberScrollState()
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    // Recalculate Trend Chart Points dynamically from rows and days
+    val trendChartPoints = remember(days, rows) {
+        days.map { day ->
+            var sum = 0f
+            rows.forEach { row ->
+                val cell = row.daily[day]
+                if (cell != null) {
+                    sum += cell.value.toFloatOrNull() ?: 0f
+                }
+            }
+            ChartPoint(
+                label = day.split("-").last() + "日",
+                value1 = sum
+            )
+        }
+    }
+
+    // Recalculate Pie Chart Slices dynamically from rows
+    val pieChartSlices = remember(rows) {
+        val colors = listOf(
+            Orange500, Blue500, Emerald500, Color(0xFF8B5CF6), Color(0xFFEC4899),
+            Color(0xFF14B8A6), Color(0xFFEAB308), Color(0xFF6366F1)
+        )
+        rows.mapIndexed { idx, row ->
+            val totalVal = row.total.replace(",", "").toFloatOrNull() ?: 0f
+            PieSlice(
+                name = row.name.replace("  └ ", "").trim(),
+                value = totalVal,
+                color = colors[idx % colors.size]
+            )
+        }.filter { it.value > 0f }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Slate50)
+            .padding(16.dp)
+    ) {
         // Month Selector & KBI Header
         Card(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, Slate200)
         ) {
             Column(Modifier.padding(16.dp)) {
                 Row(
@@ -44,26 +102,90 @@ fun MatrixBase(
                 ) {
                     Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Slate900)
                     
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { /* Previous month */ }) {
-                            Icon(Icons.Default.ChevronLeft, contentDescription = null)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        IconButton(
+                            onClick = { onMonthChange(shiftMonth(selectedMonth, -1)) },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.ChevronLeft, contentDescription = "上个月", tint = Slate600)
                         }
-                        Text(selectedMonth, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        IconButton(onClick = { /* Next month */ }) {
-                            Icon(Icons.Default.ChevronRight, contentDescription = null)
+                        Text(
+                            text = selectedMonth,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 14.sp,
+                            color = Slate800,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                        )
+                        IconButton(
+                            onClick = { onMonthChange(shiftMonth(selectedMonth, 1)) },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.ChevronRight, contentDescription = "下个月", tint = Slate600)
                         }
                     }
                 }
 
                 if (kbiSummary.isNotEmpty()) {
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                         kbiSummary.forEach { (label, value, color) ->
                             Column {
-                                Text(label, color = Slate500, fontSize = 11.sp)
-                                Text(value, color = color, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                Text(label, color = Slate500, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text(value, color = color, fontSize = 18.sp, fontWeight = FontWeight.Black)
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        // 3. Analytical Trends & Proportion Structure Charts (Dynamic & Responsive!)
+        if (rows.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Trend Line
+                Card(
+                    modifier = Modifier
+                        .weight(1.4f)
+                        .height(160.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Slate200)
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text("每日数据核定走势图", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Slate700)
+                        Spacer(Modifier.height(6.dp))
+                        CustomAreaChart(
+                            points = trendChartPoints,
+                            modifier = Modifier.fillMaxSize(),
+                            title1 = if (title.contains("成本")) "日常总成本 (¥)" else "生产工时 (h)"
+                        )
+                    }
+                }
+
+                // Pie Structure Proportion Chart
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(160.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Slate200)
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text("二级组织/项目结构占比", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Slate700)
+                        Spacer(Modifier.height(6.dp))
+                        CustomPieChart(
+                            slices = pieChartSlices,
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
                 }
             }
@@ -78,7 +200,12 @@ fun MatrixBase(
         ) {
             Column {
                 // Table Header
-                Row(modifier = Modifier.fillMaxWidth().background(Slate50).horizontalScroll(horizontalScrollState)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Slate50)
+                        .horizontalScroll(horizontalScrollState)
+                ) {
                     Box(Modifier.width(160.dp).padding(12.dp).background(Slate50)) {
                         Text("部门名称", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Slate600)
                     }
