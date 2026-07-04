@@ -9,7 +9,7 @@ fun StudentMealCostScreen(repo: XianyuRepository, token: String) {
         repo = repo,
         token = token,
         title = "学生餐单餐成本穿透矩阵",
-        fetchData = { null }, // Placeholder for real API
+        fetchData = { repo.getStudentMealCost(token, it) },
         mockTitle = "学生餐成本"
     )
 }

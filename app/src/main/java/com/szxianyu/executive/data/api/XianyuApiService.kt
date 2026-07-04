@@ -23,43 +23,43 @@ interface XianyuApiService {
     suspend fun getWorkMatrix(
         @Header("Authorization") token: String,
         @Query("month") month: String
-    ): Response<Map<String, Any>>
+    ): Response<MatrixData>
 
     @GET("/api/plugins/hr/monthly-check/total-cost")
     suspend fun getTotalCostMatrix(
         @Header("Authorization") token: String,
         @Query("month") month: String
-    ): Response<Map<String, Any>>
+    ): Response<MatrixData>
 
     @GET("/api/plugins/hr/monthly-check/student-meal")
     suspend fun getStudentMealCost(
         @Header("Authorization") token: String,
         @Query("month") month: String
-    ): Response<Map<String, Any>>
+    ): Response<MatrixData>
 
     @GET("/api/plugins/hr/monthly-check/baimao")
     suspend fun getBaimaoData(
         @Header("Authorization") token: String,
         @Query("month") month: String
-    ): Response<Map<String, Any>>
+    ): Response<MatrixData>
 
     @GET("/api/plugins/hr/monthly-check/campus-part-time")
     suspend fun getCampusData(
         @Header("Authorization") token: String,
         @Query("month") month: String
-    ): Response<Map<String, Any>>
+    ): Response<MatrixData>
 
     @GET("/api/plugins/hr/monthly-check/convenience")
     suspend fun getConvenienceData(
         @Header("Authorization") token: String,
         @Query("month") month: String
-    ): Response<Map<String, Any>>
+    ): Response<MatrixData>
 
     @GET("/api/plugins/hr/monthly-check/third-party")
     suspend fun getThirdPartyData(
         @Header("Authorization") token: String,
         @Query("month") month: String
-    ): Response<Map<String, Any>>
+    ): Response<MatrixData>
 
     // Detail Screens
     @GET("/api/plugins/hr/department-penetration")

@@ -1,6 +1,8 @@
 package com.szxianyu.executive.data
 
 import com.szxianyu.executive.data.api.XianyuApiService
+import com.szxianyu.executive.data.models.*
+import retrofit2.Response
 import com.szxianyu.executive.ui.MatrixCellData
 import com.szxianyu.executive.ui.MatrixRowData
 import androidx.compose.ui.graphics.Color
@@ -19,15 +21,37 @@ class XianyuRepository(private val apiService: XianyuApiService) {
     }
 
     suspend fun getWorkMatrix(token: String, month: String): MatrixData? {
+        return executeMatrixCall { apiService.getWorkMatrix("Bearer $token", month) }
+    }
+
+    suspend fun getTotalCostMatrix(token: String, month: String): MatrixData? {
+        return executeMatrixCall { apiService.getTotalCostMatrix("Bearer $token", month) }
+    }
+
+    suspend fun getStudentMealCost(token: String, month: String): MatrixData? {
+        return executeMatrixCall { apiService.getStudentMealCost("Bearer $token", month) }
+    }
+
+    suspend fun getBaimaoData(token: String, month: String): MatrixData? {
+        return executeMatrixCall { apiService.getBaimaoData("Bearer $token", month) }
+    }
+
+    suspend fun getCampusData(token: String, month: String): MatrixData? {
+        return executeMatrixCall { apiService.getCampusData("Bearer $token", month) }
+    }
+
+    suspend fun getConvenienceData(token: String, month: String): MatrixData? {
+        return executeMatrixCall { apiService.getConvenienceData("Bearer $token", month) }
+    }
+
+    suspend fun getThirdPartyData(token: String, month: String): MatrixData? {
+        return executeMatrixCall { apiService.getThirdPartyData("Bearer $token", month) }
+    }
+
+    private suspend fun executeMatrixCall(call: suspend () -> Response<MatrixData>): MatrixData? {
         return try {
-            val response = apiService.getWorkMatrix("Bearer $token", month)
-            // Assuming the API returns MatrixData structure in the Map or directly
-            // For now, let's just use the mock if API fails to keep it usable for demo
-            if (response.isSuccessful) {
-                // Parse response.body() into MatrixData
-                // This is a placeholder for real parsing
-                null 
-            } else null
+            val response = call()
+            if (response.isSuccessful) response.body() else null
         } catch (e: Exception) {
             null
         }

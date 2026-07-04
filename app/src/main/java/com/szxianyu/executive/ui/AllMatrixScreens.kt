@@ -54,7 +54,7 @@ fun TotalCostMatrixScreen(repo: XianyuRepository, token: String) {
         repo = repo,
         token = token,
         title = "月度全口径成本矩阵",
-        fetchData = { null }, // Placeholder for real API
+        fetchData = { repo.getTotalCostMatrix(token, it) },
         mockTitle = "总成本矩阵"
     )
 }
@@ -65,7 +65,7 @@ fun BaimaoScreen(repo: XianyuRepository, token: String) {
         repo = repo,
         token = token,
         title = "白猫工厂工时与成本核算",
-        fetchData = { null }, // Placeholder
+        fetchData = { repo.getBaimaoData(token, it) },
         mockTitle = "白猫"
     )
 }
@@ -76,7 +76,7 @@ fun CampusScreen(repo: XianyuRepository, token: String) {
         repo = repo,
         token = token,
         title = "校园兼职用工成本矩阵",
-        fetchData = { null }, // Placeholder
+        fetchData = { repo.getCampusData(token, it) },
         mockTitle = "校园兼职"
     )
 }
@@ -87,7 +87,7 @@ fun ConvenienceScreen(repo: XianyuRepository, token: String) {
         repo = repo,
         token = token,
         title = "方便菜肴事业部核算矩阵",
-        fetchData = { null }, // Placeholder
+        fetchData = { repo.getConvenienceData(token, it) },
         mockTitle = "方便菜肴"
     )
 }
@@ -98,7 +98,7 @@ fun ThirdPartyScreen(repo: XianyuRepository, token: String) {
         repo = repo,
         token = token,
         title = "第三方派遣劳务核算矩阵",
-        fetchData = { null }, // Placeholder
+        fetchData = { repo.getThirdPartyData(token, it) },
         mockTitle = "第三方"
     )
 }
