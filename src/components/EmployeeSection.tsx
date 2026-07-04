@@ -34,6 +34,8 @@ export default function EmployeeSection({ employees }: EmployeeSectionProps) {
 
   const activeEmp = employees.find((e) => e.id === selectedEmpId) || filteredEmployees[0] || employees[0];
 
+  const totalHours = activeEmp ? Object.values(activeEmp.daily_hours).reduce((acc, curr) => acc + (curr || 0), 0) : 0;
+
   const getRiskBadge = (level: "low" | "medium" | "high") => {
     if (level === "high") {
       return (
@@ -152,20 +154,20 @@ export default function EmployeeSection({ employees }: EmployeeSectionProps) {
                   <h3 className="text-[11px] font-bold text-slate-800 mb-3 flex items-center gap-1.5 border-l-3 border-orange-500 pl-2">工时核定 (当月)</h3>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                      <div className="text-[9px] text-slate-500">最终核定 (total_hours)</div>
-                      <div className="text-sm font-bold text-slate-900 font-mono mt-0.5">{activeEmp.total_hours}h</div>
+                      <div className="text-[9px] text-slate-500">最终核定工时</div>
+                      <div className="text-sm font-bold text-slate-900 font-mono mt-0.5">{totalHours.toFixed(1)}h</div>
                     </div>
                     <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                      <div className="text-[9px] text-slate-500">正班工时 (regular)</div>
-                      <div className="text-sm font-bold text-emerald-600 font-mono mt-0.5">{(activeEmp.total_hours - activeEmp.overtime_hours).toFixed(1)}h</div>
+                      <div className="text-[9px] text-slate-500">人均工时 (基准)</div>
+                      <div className="text-sm font-bold text-emerald-600 font-mono mt-0.5">{activeEmp.avg_hours.toFixed(1)}h</div>
                     </div>
                     <div className="bg-rose-50/50 p-2.5 rounded-lg border border-rose-100">
-                      <div className="text-[9px] text-rose-600">加班工时 (overtime)</div>
-                      <div className="text-sm font-bold text-rose-600 font-mono mt-0.5">{activeEmp.overtime_hours}h</div>
+                      <div className="text-[9px] text-rose-600">出勤率</div>
+                      <div className="text-sm font-bold text-rose-600 font-mono mt-0.5">{activeEmp.attendance_rate}%</div>
                     </div>
                     <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
                       <div className="text-[9px] text-slate-500">月薪资估算</div>
-                      <div className="text-sm font-bold text-slate-700 font-mono mt-0.5">¥{activeEmp.salary.toLocaleString()}</div>
+                      <div className="text-sm font-bold text-slate-700 font-mono mt-0.5">-</div>
                     </div>
                   </div>
                 </div>
@@ -179,18 +181,22 @@ export default function EmployeeSection({ employees }: EmployeeSectionProps) {
                         <table className="w-full text-left">
                           <thead className="bg-slate-50 text-slate-500">
                             <tr>
-                              <th className="px-3 py-2 font-bold">打卡时间</th>
-                              <th className="px-3 py-2 font-bold">地点/设备</th>
+                              <th className="px-3 py-2 font-bold">日期</th>
+                              <th className="px-3 py-2 font-bold">上班打卡</th>
+                              <th className="px-3 py-2 font-bold">下班打卡</th>
                               <th className="px-3 py-2 font-bold">状态</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
                             {activeEmp.punch_records.map((r, i) => (
                               <tr key={i}>
-                                <td className="px-3 py-2 font-mono font-bold text-slate-700">{r.time}</td>
-                                <td className="px-3 py-2 text-slate-600">{r.location}</td>
+                                <td className="px-3 py-2 font-mono text-slate-500">{r.date}</td>
+                                <td className="px-3 py-2 font-mono font-bold text-slate-700">{r.clock_in || "-"}</td>
+                                <td className="px-3 py-2 font-mono font-bold text-slate-700">{r.clock_out || "-"}</td>
                                 <td className="px-3 py-2">
-                                  <span className="text-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded">有效</span>
+                                  <span className={`px-1.5 py-0.5 rounded ${r.status === '正常' ? 'text-emerald-500 bg-emerald-50' : 'text-rose-500 bg-rose-50'}`}>
+                                    {r.status}
+                                  </span>
                                 </td>
                               </tr>
                             ))}
