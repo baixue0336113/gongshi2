@@ -44,18 +44,18 @@ fun OverviewScreen(repo: XianyuRepository, token: String) {
             // KPI Summary Cards
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    KPICard("员工总数", summary?.total_staff?.toString() ?: "342", "${summary?.total_staff_compare ?: 0.0}%", (summary?.total_staff_compare ?: 0.0) >= 0, Modifier.weight(1f))
-                    KPICard("生产工时", summary?.production_hours?.toString() ?: "2,804", "${summary?.production_hours_compare ?: 0.0}%", (summary?.production_hours_compare ?: 0.0) >= 0, Modifier.weight(1f))
-                    KPICard("出勤率", "${summary?.attendance_rate ?: 96.5}%", "${summary?.attendance_rate_compare ?: 0.0}%", (summary?.attendance_rate_compare ?: 0.0) >= 0, Modifier.weight(1f))
-                    KPICard("人均工时", summary?.avg_hours?.toString() ?: "8.2", "${summary?.avg_hours_compare ?: 0.0}%", (summary?.avg_hours_compare ?: 0.0) <= 0, Modifier.weight(1f))
+                    KPICard("员工总数", summary?.total_staff?.toString() ?: "342", (if ((summary?.total_staff_compare ?: 0.0) >= 0) "+" else "") + "${summary?.total_staff_compare ?: 0.0}%", (summary?.total_staff_compare ?: 0.0) >= 0, Modifier.weight(1f))
+                    KPICard("生产工时", summary?.production_hours?.toString() ?: "2,804", (if ((summary?.production_hours_compare ?: 0.0) >= 0) "+" else "") + "${summary?.production_hours_compare ?: 0.0}%", (summary?.production_hours_compare ?: 0.0) >= 0, Modifier.weight(1f))
+                    KPICard("出勤率", "${summary?.attendance_rate ?: 96.5}%", (if ((summary?.attendance_rate_compare ?: 0.0) >= 0) "+" else "") + "${summary?.attendance_rate_compare ?: 0.0}%", (summary?.attendance_rate_compare ?: 0.0) >= 0, Modifier.weight(1f))
+                    KPICard("人均工时", summary?.avg_hours?.toString() ?: "8.2", (if ((summary?.avg_hours_compare ?: 0.0) >= 0) "+" else "") + "${summary?.avg_hours_compare ?: 0.0}%", (summary?.avg_hours_compare ?: 0.0) <= 0, Modifier.weight(1f))
                 }
             }
             
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    KPICard("人工成本", "¥${summary?.labor_cost ?: 87800}", "${summary?.labor_cost_compare ?: 0.0}%", (summary?.labor_cost_compare ?: 0.0) <= 0, Modifier.weight(1f))
-                    KPICard("成本率", "${summary?.labor_cost_rate ?: 22.4}%", "${summary?.labor_cost_rate_compare ?: 0.0}%", (summary?.labor_cost_rate_compare ?: 0.0) <= 0, Modifier.weight(1f))
-                    KPICard("单位工时成本", "¥${summary?.unit_hour_labor_cost ?: 31.3}", "${summary?.unit_hour_labor_cost_compare ?: 0.0}%", (summary?.unit_hour_labor_cost_compare ?: 0.0) <= 0, Modifier.weight(1f))
+                    KPICard("人工成本", "¥${summary?.labor_cost ?: 87800}", (if ((summary?.labor_cost_compare ?: 0.0) >= 0) "+" else "") + "${summary?.labor_cost_compare ?: 0.0}%", (summary?.labor_cost_compare ?: 0.0) <= 0, Modifier.weight(1f))
+                    KPICard("成本率", "${summary?.labor_cost_rate ?: 22.4}%", (if ((summary?.labor_cost_rate_compare ?: 0.0) >= 0) "+" else "") + "${summary?.labor_cost_rate_compare ?: 0.0}%", (summary?.labor_cost_rate_compare ?: 0.0) <= 0, Modifier.weight(1f))
+                    KPICard("单位工时成本", "¥${summary?.unit_hour_labor_cost ?: 31.3}", (if ((summary?.unit_hour_labor_cost_compare ?: 0.0) >= 0) "+" else "") + "${summary?.unit_hour_labor_cost_compare ?: 0.0}%", (summary?.unit_hour_labor_cost_compare ?: 0.0) <= 0, Modifier.weight(1f))
                     KPICard("工时覆盖率", "94.2%", "+1.5%", true, Modifier.weight(1f))
                 }
             }
