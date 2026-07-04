@@ -27,8 +27,8 @@ data class TrendPoint(
 )
 
 data class MatrixDailyData(
-    val hours: Int? = null,
-    val cost: Int? = null,
+    val hours: Double? = null,
+    val cost: Double? = null,
     val abnormal: Boolean? = null,
     val attendance: String? = null
 )
@@ -36,8 +36,8 @@ data class MatrixDailyData(
 data class MatrixRow(
     val id: String,
     val name: String,
-    val total_hours: Int? = null,
-    val total_cost: Int? = null,
+    val total_hours: Double? = null,
+    val total_cost: Double? = null,
     val daily: Map<String, MatrixDailyData> = emptyMap(),
     val children: List<MatrixRow>? = null
 )

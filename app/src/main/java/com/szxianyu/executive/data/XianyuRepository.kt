@@ -86,7 +86,7 @@ class XianyuRepository(private val apiService: XianyuApiService) {
                 key.contains("均") -> Orange500
                 else -> Emerald500
             }
-            Triple(key, value, color)
+            Triple(key, value.toString(), color)
         }
     }
 
@@ -109,7 +109,7 @@ class XianyuRepository(private val apiService: XianyuApiService) {
             MatrixRowData(
                 id = index.toString(),
                 name = name,
-                total = "${daily.values.sumOf { it.value.toInt() }}",
+                total = "${daily.values.sumOf { it.value.toDouble() }.toInt()}",
                 daily = daily
             )
         }
