@@ -76,6 +76,20 @@ class XianyuRepository(private val apiService: XianyuApiService) {
         }
     }
 
+    fun convertToUiKbi(matrix: MatrixData?, title: String): List<Triple<String, String, Color>> {
+        val summary = matrix?.summary
+        if (summary == null || summary.isEmpty()) return getMockKbi(title)
+        return summary.map { (key, value) ->
+            val color = when {
+                key.contains("总") -> Slate900
+                key.contains("异常") || key.contains("率") || key.contains("风险") -> Rose500
+                key.contains("均") -> Orange500
+                else -> Emerald500
+            }
+            Triple(key, value, color)
+        }
+    }
+
     fun getMockMatrixData(title: String): List<MatrixRowData> {
         val rows = listOf(
             "洗消一组", "洗消二组", "切配加工部", "分餐流水线", "物流装车部", 

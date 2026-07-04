@@ -20,7 +20,7 @@ fun MatrixScreenContainer(
 
     val days = matrixData?.days ?: (1..31).map { it.toString() }
     val rows = remember(matrixData) { repo.convertToUiRows(matrixData, mockTitle) }
-    val kbi = remember { repo.getMockKbi(mockTitle) }
+    val kbi = remember(matrixData) { repo.convertToUiKbi(matrixData, mockTitle) }
 
     LaunchedEffect(selectedMonth) {
         isLoading = true
